@@ -114,7 +114,7 @@ antibody_risk
 - [x] README 更新:四层架构、ML/RAG/Agent 章节
 - [x] `examples/train_ml_demo.py` 一键演示
 - [x] git 提交并推送(commit `137e840`)
-- [ ] 端到端 demo 一次性脚本与截图(可选)
+- [x] 端到端 demo 一次性脚本:`examples/run_full_demo.py` 四层全跑 → `demo/DEMO_REPORT.md` + `demo/dashboard.png`(已生成)
 - [x] 实测可选模块:torch Transformer(准确率≈0.82)与 langchain 适配器(工具调用验证通过)
 
 ---

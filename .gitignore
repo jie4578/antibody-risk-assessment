@@ -21,6 +21,9 @@ ml/artifacts/
 ml/__pycache__/
 ml/**/__pycache__/
 
+# 端到端演示产物（可再生成）
+demo/
+
 # VSCode（本机路径配置，不提交）
 .vscode/
 

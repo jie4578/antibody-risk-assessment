@@ -142,6 +142,13 @@ python cli.py ml-train --n 800 --task classification --model logistic --save ml/
 python cli.py ml-predict --model ml/artifacts/cls.joblib --seq "<待预测序列>"
 ```
 
+3. **端到端一键演示**（四层全跑，产出报告 + 仪表盘图到 `demo/`）：
+
+```bash
+python examples/run_full_demo.py
+# 产物: demo/DEMO_REPORT.md（四层输出汇总）、demo/dashboard.png（ML 仪表盘）
+```
+
 ## 4. Input Formats
 
 批量分析支持三种输入格式，统一解析为 `antibody_id` / `VH` / `VL` 三列 DataFrame 后交给 `batch_analysis()`。**相同序列无论以哪种格式输入，分析结果（risk_score / risk_level / analysis_status / 风险计数）完全一致。**
