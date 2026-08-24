@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "antibody-risk"
+version = "0.1.0"
+description = "Antibody developability / chemical-liability risk analysis: rule engine + ML property prediction + RAG + Agent (AIDD playground)."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [{ name = "antibody_risk" }]
+keywords = ["antibody", "AIDD", "developability", "machine-learning", "protein", "bioinformatics"]
+
+# 核心依赖：默认安装即可运行（规则引擎 + ML + CLI + Gradio）
+dependencies = [
+    "numpy>=1.21",
+    "pandas>=1.5",
+    "scipy>=1.7",
+    "scikit-learn>=1.0",
+    "gradio>=4.0",
+    "openpyxl>=3.0",
+]
+
+[project.optional-dependencies]
+# 深度/树模型增强（可选）
+ml = ["lightgbm>=3.3"]
+# 深度学习 Transformer（可选，需 torch）
+dl = ["torch>=2.0"]
+# 向量检索（可选）
+vec = ["faiss-cpu>=1.7", "chromadb>=0.4"]
+# 可视化
+viz = ["matplotlib>=3.5"]
+# LLM / Agent（可选；LLM 提供 OpenAI / DeepSeek 等可选后端，无 key 时可离线兜底）
+agent = ["langchain>=0.1", "langchain-openai>=0.1"]
+# 全部
+all = ["lightgbm>=3.3", "faiss-cpu>=1.7", "chromadb>=0.4", "matplotlib>=3.5", "langchain>=0.1", "langchain-openai>=0.1"]
+# 开发/测试
+dev = ["pytest>=7.0", "pytest-cov", "matplotlib>=3.5"]
+
+[project.scripts]
+antibody-risk = "cli:main"
+
+[tool.setuptools]
+py-modules = ["core", "models", "scoring", "batch_analysis", "input_parser", "app", "scan_motifs", "cli"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["ml*", "rag*", "agent*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

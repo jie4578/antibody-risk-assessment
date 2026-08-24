@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Gradio
+.gradio/
+
+# 环境变量与虚拟环境
+.env
+.venv/
+venv/
+
+# 临时文件
+*.tmp
+
+# ML 产物（模型 / 图片 / 缓存）
+ml/artifacts/
+*.joblib
+*.png
+ml/__pycache__/
+ml/**/__pycache__/
+
+# VSCode（本机路径配置，不提交）
+.vscode/
