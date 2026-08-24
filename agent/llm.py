@@ -118,9 +118,14 @@ class _OpenAICompatBackend:
             from openai import OpenAI
         except Exception as e:  # pragma: no cover
             raise ImportError("需要安装 openai 包才能使用真实 LLM 后端") from e
-        key = os.environ.get(api_key_env)
+        from config import get_env
+
+        key = get_env(api_key_env)
         if not key:
-            raise RuntimeError(f"缺少环境变量 {api_key_env}（或未配置 API key）")
+            raise RuntimeError(
+                f"缺少 {api_key_env}。请在仓库根目录创建 .env（参考 .env.example），"
+                f"写入 {api_key_env}=sk-xxx 后重试。"
+            )
         self._client = OpenAI(api_key=key, base_url=base_url)
         self._model = model
 

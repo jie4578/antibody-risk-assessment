@@ -375,6 +375,15 @@ python cli.py agent-ask --q "什么是脱酰胺化？"
 python cli.py agent-orchestrate --q "评估这条序列的风险并告诉我脱酰胺化为什么重要：<序列>"
 ```
 
+**接入真实 LLM**（默认 `MockLLM` 离线演示；加 `--backend deepseek` 即用真实函数调用，需在 `.env` 填 key）：
+
+```bash
+python cli.py agent-ask --q "什么是脱酰胺化？" --backend deepseek
+python examples/run_real_llm_demo.py   # Agent + 多智能体 + LangChain 端到端
+```
+
+配置步骤与说明见 `docs/REAL_LLM_SETUP.md`（`.env.example` 为模板，`.env` 不入库）。
+
 ### 9.2 代码用法
 
 ```python

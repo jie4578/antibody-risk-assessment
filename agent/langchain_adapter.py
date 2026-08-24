@@ -81,24 +81,34 @@ def wrap_tools() -> List:
     return out
 
 
-def build_langchain_agent(llm=None):
+def build_langchain_agent(llm=None, backend: str = "deepseek"):
     """组装 LangChain Agent。
 
     参数:
-        llm: 一个 LangChain 兼容的 chat model；为空时尝试用 langchain-openai(ChatOpenAI) 连接 OPENAI_API_KEY。
+        llm: 一个 LangChain 兼容的 chat model；为空时按 backend 自动创建。
+        backend: 'deepseek'（默认，便宜）或 'openai'；对应读取 .env 中的 DEEPSEEK_API_KEY / OPENAI_API_KEY。
     返回:
         langchain 0.x → AgentExecutor；langchain 1.x → 编译后的 LangGraph ReAct agent。
     """
     executor_cls, react_factory, PromptTemplate, _ = _require_langchain()
 
     if llm is None:
-        import os
-
+        from config import get_env
         from langchain_openai import ChatOpenAI
 
-        if not os.environ.get("OPENAI_API_KEY"):
-            raise RuntimeError("缺少 OPENAI_API_KEY 无法构建 LangChain Agent（可传入自定义 llm）")
-        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+        backend = (backend or "deepseek").lower()
+        if backend in ("deepseek", "ds"):
+            key = get_env("DEEPSEEK_API_KEY")
+            if not key:
+                raise RuntimeError("缺少 DEEPSEEK_API_KEY：请在仓库根目录 .env 填入后重试（参考 .env.example）")
+            llm = ChatOpenAI(model="deepseek-chat", base_url="https://api.deepseek.com", api_key=key, temperature=0)
+        elif backend in ("openai", "gpt"):
+            key = get_env("OPENAI_API_KEY")
+            if not key:
+                raise RuntimeError("缺少 OPENAI_API_KEY：请在仓库根目录 .env 填入后重试（参考 .env.example）")
+            llm = ChatOpenAI(model="gpt-4o-mini", api_key=key, temperature=0)
+        else:
+            raise ValueError(f"未知 backend: {backend}（可选 deepseek / openai）")
 
     tools = wrap_tools()
     if executor_cls is not None:  # langchain 0.x
