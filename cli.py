@@ -151,6 +151,13 @@ def cmd_agent_orchestrate(args) -> int:
 
 
 def main(argv=None) -> int:
+    # Windows 控制台编码兜底：真实 LLM 可能输出 GBK 无法编码的字符（下标/emoji），
+    # 用 replace 替代而不是抛 UnicodeEncodeError 崩溃。
+    try:
+        sys.stdout.reconfigure(errors="replace")
+        sys.stderr.reconfigure(errors="replace")
+    except Exception:
+        pass
     args = _build_parser().parse_args(argv)
     handlers = {
         "scan": cmd_scan,

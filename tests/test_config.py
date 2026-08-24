@@ -6,15 +6,18 @@ import pytest
 from config import get_env, load_dotenv, require_env
 
 
-def test_load_dotenv_parses_file(tmp_path):
+def test_load_dotenv_parses_file(tmp_path, monkeypatch):
     env_file = tmp_path / ".env"
     env_file.write_text(
-        '# 注释\nDEEPSEEK_API_KEY=sk-test123\nOPENAI_API_KEY="sk-quoted"\nEMPTY=\n',
+        '# 注释\nDEEPSEEK_API_KEY=test-value-123\nOPENAI_API_KEY="test-value-quoted"\nEMPTY=\n',
         encoding="utf-8",
     )
+    # 隔离：清掉可能已从真实 .env 载入的 key，保证本测试用测试值
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     load_dotenv(str(env_file))
-    assert get_env("DEEPSEEK_API_KEY") == "sk-test123"
-    assert get_env("OPENAI_API_KEY") == "sk-quoted"
+    assert get_env("DEEPSEEK_API_KEY") == "test-value-123"
+    assert get_env("OPENAI_API_KEY") == "test-value-quoted"
 
 
 def test_get_env_default():

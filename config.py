@@ -64,6 +64,6 @@ def require_env(key: str) -> str:
     if not value:
         raise RuntimeError(
             f"缺少环境变量 {key}。请在仓库根目录创建 .env 并写入（参考 .env.example），"
-            f"例如: {key}=sk-xxxx"
+            f"例如: {key}=<your-key>"
         )
     return value

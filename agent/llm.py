@@ -124,7 +124,7 @@ class _OpenAICompatBackend:
         if not key:
             raise RuntimeError(
                 f"缺少 {api_key_env}。请在仓库根目录创建 .env（参考 .env.example），"
-                f"写入 {api_key_env}=sk-xxx 后重试。"
+                f"写入 {api_key_env}=<your-key> 后重试。"
             )
         self._client = OpenAI(api_key=key, base_url=base_url)
         self._model = model

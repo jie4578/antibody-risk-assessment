@@ -107,6 +107,7 @@ antibody_risk
 - [x] 多智能体编排:主管分解 → scan/ml/knowledge 专家协同 → 汇总(`agent/orchestrator.py`)
 - [x] CLI `agent-ask` / `agent-orchestrate`;测试全绿
 - [x] (可选,需 langchain)`agent/langchain_adapter.py`:把工具打包为 LangChain StructuredTool 并装配 ReAct/AgentExecutor——已实测(兼容 0.x 与 1.x/LangGraph)
+- [x] 真实 LLM 端到端已验证:DeepSeek 函数调用(Tool Calling)+ 多智能体 + LangChain agent 全链路跑通(`examples/run_real_llm_demo.py`、`cli.py agent-ask --backend deepseek`)
 
 ### Phase 4 — 集成与展示(大部分完成)
 - [x] Gradio 升级:`app.py` 现含 6 个 Tab(扫描/突变/批量 + 🔮 ML 预测 / 📚 RAG 问答 / 🤖 Agent),handler 已联调可用

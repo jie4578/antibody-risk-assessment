@@ -67,6 +67,11 @@ def demo_langchain() -> None:
 
 
 def main() -> None:
+    # Windows 控制台编码兜底：避免真实 LLM 输出特殊字符导致 UnicodeEncodeError
+    try:
+        sys.stdout.reconfigure(errors="replace")
+    except Exception:
+        pass
     _require_key()
     demo_agent()
     demo_orchestrator()

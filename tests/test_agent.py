@@ -32,7 +32,10 @@ def test_get_llm_unknown():
 
 
 def test_deepseek_llm_requires_key(monkeypatch):
-    # 环境未装 openai → ImportError；装过但缺 key → RuntimeError。两者均应视为"不可用"。
+    # 让 config 不加载真实 .env 且清掉环境变量 → 缺 key → 应抛错（未装 openai 时抛 ImportError，否则 RuntimeError）
+    import config
+
+    monkeypatch.setattr(config, "_DOTENV_PATHS", [])
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
     with pytest.raises((ImportError, RuntimeError)):
         DeepSeekLLM()
