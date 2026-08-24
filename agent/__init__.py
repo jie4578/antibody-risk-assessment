@@ -1,7 +1,7 @@
 # agent/__init__.py
 # LLM 智能体模块：工具调用 (Tool Calling)、记忆 (Memory)、ReAct 推理循环、多智能体编排。
 #
-# 目标（对应岗位要求 #2、#4）：
+# 目标：
 #   - 理解并具备 LLM 应用与智能体开发；Agent / Tool Calling / Memory 核心机制；
 #   - 多智能体协作与编排（分工、任务分解、协同执行）。
 #

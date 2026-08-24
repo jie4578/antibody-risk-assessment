@@ -1,8 +1,7 @@
 # agent/langchain_adapter.py
 # LangChain 集成适配器（可选，需安装 langchain）。
 #
-# 目标（对应岗位要求 #2 "熟悉 LangChain / LlamaIndex 框架的 LLM 应用与智能体开发"）：
-#   把本项目 default_tools() 打包成 LangChain 工具，并装配成 LangChain ReAct Agent，
+# 目标：把本项目 default_tools() 打包成 LangChain 工具，并装配成 LangChain ReAct Agent，
 #   从而复用 LangChain 生态；同时保留本项目自研的离线 MockLLM 方案（无 key 可跑）。
 #
 # 使用（安装 langchain 后）：

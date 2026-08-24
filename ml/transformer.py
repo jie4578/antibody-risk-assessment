@@ -1,7 +1,7 @@
 # ml/transformer.py
 # 最小 Transformer 编码器（可选，需安装 torch）。
 #
-# 目标（对应岗位要求 #5 "Transformer 基础"）：展示把抗体序列当作 token 序列，
+# 目标：展示把抗体序列当作 token 序列，
 # 用"位置编码 + 多头自注意力 + 前馈网络"做编码，再接分类头做风险预测。
 #
 # 说明：默认核心依赖不含 torch（轻量原则）。安装 torch 后可直接用

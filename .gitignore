@@ -23,3 +23,6 @@ ml/**/__pycache__/
 
 # VSCode（本机路径配置，不提交）
 .vscode/
+
+# 本地私有笔记（岗位要求与映射，仅本地使用）
+LOCAL_JOB_NOTES.md

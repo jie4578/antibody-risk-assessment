@@ -276,7 +276,7 @@ X = enc.transform(df["sequence"].tolist())   # (n, n_features)
 - 分类（高风险与否）：`logistic` / `random_forest` / `gbdt` / `lightgbm`
 - 回归（风险分数）：`ridge` / `random_forest` / `gbdt` / `lightgbm`
 
-**（可选）Transformer 分类器**：`ml/transformer.py` 用 PyTorch 实现"位置编码 + 多头自注意力 + 前馈网络"的**最小 Transformer 编码器**（`build_transformer_classifier`），把序列当 token 处理，对应岗位要求的"Transformer 基础"。需 `pip install '.[dl]'`（torch）后启用；未装 torch 时该模块可导入但调用会给出提示。
+**（可选）Transformer 分类器**：`ml/transformer.py` 用 PyTorch 实现"位置编码 + 多头自注意力 + 前馈网络"的**最小 Transformer 编码器**（`build_transformer_classifier`），把序列当 token 处理，体现 Transformer 基础概念。需 `pip install '.[dl]'`（torch）后启用；未装 torch 时该模块可导入但调用会给出提示。
 
 ### 7.4 训练与评估
 
@@ -305,7 +305,7 @@ python cli.py ml-train --n 800 --task classification --model logistic --save ml/
 
 ## 8. RAG 检索增强生成（新增）
 
-`rag/` 实现一个**可离线运行**的 RAG 管线，覆盖岗位要求的"向量化 / 检索策略 / 上下文构建"，并对接（下一步）Agent 工具调用。
+`rag/` 实现一个**可离线运行**的 RAG 管线，覆盖"向量化 / 检索策略 / 上下文构建"三个核心环节，并对接（下一步）Agent 工具调用。
 
 ```
 rag/
@@ -337,7 +337,7 @@ print(result["context"])                   # 组装好的上下文（带 [n] 引
 print(result["prompt"])                    # 可交给 LLM 的 prompt
 ```
 
-### 8.3 设计要点（对应当前岗位要求）
+### 8.3 设计要点
 
 - **向量化**：默认用 TF-IDF（字符 n-gram，兼容中英文）与 n-gram 哈希（稠密）；安装 `sentence-transformers` 可升级为真实语义向量。
 - **检索策略**：`vector`（余弦）/ `keyword`（自实现 BM25，无额外依赖）/ `hybrid`（Reciprocal Rank Fusion 融合两路，兼顾语义与精确词）。
@@ -348,7 +348,7 @@ print(result["prompt"])                    # 可交给 LLM 的 prompt
 
 ## 9. LLM / Agent 智能体（新增）
 
-`agent/` 实现一个**可离线运行**的工具调用智能体与多智能体编排器，覆盖岗位要求的"LLM 应用与智能体开发 / Agent / Tool Calling / Memory / 多智能体协作"。
+`agent/` 实现一个**可离线运行**的工具调用智能体与多智能体编排器，覆盖"LLM 应用与智能体开发 / Agent / Tool Calling / Memory / 多智能体协作"。
 
 ```
 agent/
@@ -423,19 +423,4 @@ python -m pytest -q
 - 人源化改造后，检测是否引入新的化学降解风险
 - 理性设计突变，去除高风险基序，指导湿实验
 - 生物信息学入门项目，展示"领域知识 + Python 实战"能力
-- 求职展示：作为 AIDD 岗位的**工程 + ML** 作品集（下一步接入 RAG / Agent）
-
-## 13. 岗位要求映射（求职展示）
-
-本项目按 **睿智医药 · 高级 AI 研发工程师（AIDD）** 岗位要求逐条对齐，映射表见完整版 `ROADMAP.md`。现状（已完成 Phase 0 - 3）：
-
-| 岗位要求 | 本项目对应产出 |
-| --- | --- |
-| 扎实 Python 与工程实现 | 模块化、dataclass、异常隔离、**174 个测试**、Gradio + CLI 双入口 |
-| 蛋白/大分子（序列建模方向） | 抗体序列特征化（k-mer / AAindex）+ 风险属性预测 |
-| 基础深度学习（Embedding、训练/推理、Transformer/微调思路） | `ml/features.py` 表示学习、`ml/train.py` 训练与交叉验证、`ml/transformer.py` 最小编码器（可选 torch） |
-| **RAG 基础实现（向量化 / 检索 / 上下文）** | `rag/`：文档分块、TF-IDF/哈希 Embedding、BM25+向量混合检索、上下文与 prompt 组装 |
-| **LangChain/LlamaIndex 智能体、Agent / Tool Calling / Memory** | `agent/`：LLM 后端抽象、5 个可调用工具、ReAct 循环、会话记忆；`agent/langchain_adapter.py` 可选 LangChain 工具/Agent 集成 |
-| **多智能体协作与编排（分工 / 任务分解 / 协同）** | `agent/orchestrator.py`：主管分解 → scan/ml/knowledge 专家协同 → 汇总 |
-| 结合 AI 工具与工程实践，独立完成需求→方案→实现→验证 | `ml/`、`rag/`、`agent/` 端到端流程：数据→特征→模型→评估→检索→工具调用 |
-| 加分：AIDD | 抗体可开发性、CDR 风险、PTM、虚拟突变分析、知识库问答、可对话研发助手 |
+- 作品集展示：四层 AIDD 流水线（规则 → ML → RAG → Agent），可作为个人技术项目展示
