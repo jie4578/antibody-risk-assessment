@@ -276,7 +276,7 @@ X = enc.transform(df["sequence"].tolist())   # (n, n_features)
 - 分类（高风险与否）：`logistic` / `random_forest` / `gbdt` / `lightgbm`
 - 回归（风险分数）：`ridge` / `random_forest` / `gbdt` / `lightgbm`
 
-**（可选）Transformer 分类器**：`ml/transformer.py` 用 PyTorch 实现"位置编码 + 多头自注意力 + 前馈网络"的**最小 Transformer 编码器**（`build_transformer_classifier`），把序列当 token 处理，体现 Transformer 基础概念。需 `pip install '.[dl]'`（torch）后启用；未装 torch 时该模块可导入但调用会给出提示。
+**（可选）Transformer 分类器**：`ml/transformer.py` 用 PyTorch 实现"位置编码 + 多头自注意力 + 前馈网络"的**最小 Transformer 编码器**（`build_transformer_classifier`），把序列当 token 处理，体现 Transformer 基础概念。需 `pip install '.[dl]'`（torch）后启用；**已实测**（torch 2.13 CPU）：合成数据上 5 epochs 收敛、测试集准确率 ≈ 0.82（见 `examples/train_transformer_demo.py`）。
 
 ### 7.4 训练与评估
 
@@ -390,7 +390,7 @@ print(result["answer"])
 - **Memory**：`ConversationMemory` 记录对话与工具观察，跨轮共享上下文。
 - **多智能体**：`Orchestrator` 依据问题把任务分解给专家智能体（规则扫描 / ML 预测 / 知识检索），共享记忆协同，再聚合。
 - **工程成果工具化**：把既有规则引擎 / ML / RAG 全部封装为可调用工具，体现"把工程能力做成 Agent 的武器"。
-- **（可选）LangChain 集成**：`agent/langchain_adapter.py` 把默认工具打包成 LangChain `StructuredTool` 并装配 `create_react_agent` / `AgentExecutor`，复用 LangChain 生态；需 `pip install '.[agent]'`（langchain）后启用，未安装则给出提示。
+- **（可选）LangChain 集成**：`agent/langchain_adapter.py` 把默认工具打包成 LangChain `StructuredTool` 并装配 ReAct Agent，复用 LangChain 生态；**已实测**（langchain 1.3，自动兼容 0.x `AgentExecutor` 与 1.x `LangGraph` 两代 API）：工具可被 LangChain 正确调用（含参数解析）；完整 Agent 运行需 API key。
 
 ## 10. Limitations
 
@@ -415,7 +415,7 @@ print(result["answer"])
 python -m pytest -q
 ```
 
-所有测试应全部通过（当前 **174** 个：既有 122 + `ml/` 20 + `rag/` 17 + `agent/` 15）。新增测试时请保持全绿。
+所有测试应全部通过（当前 **177** 个：既有 122 + `ml/` 21 + `rag/` 17 + `agent/` 17，全部通过、无跳过；可选模块 torch / langchain 已实测）。新增测试时请保持全绿。
 
 ## 12. 应用场景
 

@@ -22,11 +22,11 @@
 | --- | --- | --- |
 | 工程化与测试 | 模块化、CLI + Gradio 双入口、测试全绿 | ✅ 174 passed, 2 skipped |
 | 蛋白/大分子序列建模 | 抗体序列表示(AAindex / k-mer)+ 可开发性/风险属性预测 | ✅ `ml/` 实现并实测 |
-| 基础深度学习 | Embedding、训练/评估、Transformer 概念 | ⚠️ 特征+模型训练实测;Transformer 代码就绪待实测(torch) |
+| 基础深度学习 | Embedding、训练/评估、Transformer 概念 | ✅ 特征+模型训练实测;Transformer 已实测(torch) |
 | RAG | 向量化、检索策略、上下文构建 | ✅ `rag/` 实现并实测 |
 | LLM 智能体 | Agent、Tool Calling、Memory | ✅ `agent/` 实现并实测 |
 | 多智能体编排 | 任务分解、专家协同、结果汇总 | ✅ `agent/orchestrator.py` 实现并实测 |
-| LangChain 集成 | 工具打包为 LangChain Tool / ReAct | ⚠️ `agent/langchain_adapter.py` 就绪待实测(langchain) |
+| LangChain 集成 | 工具打包为 LangChain Tool / ReAct | ✅ `agent/langchain_adapter.py` 已实测(langchain 1.3) |
 
 ---
 
@@ -88,7 +88,7 @@ antibody_risk
 - [x] 可视化:混淆矩阵 / ROC / 特征重要性(`ml/evaluate.py`)
 - [x] 合成数据 + 规则弱标签,可离线复现(`ml/data.py`)
 - [x] 测试全绿 + `examples/train_ml_demo.py` 一键演示
-- [x] (可选,需 torch)`ml/transformer.py`:最小 Transformer 编码器(位置编码+多头自注意力+FFN)
+- [x] (可选,需 torch)`ml/transformer.py`:最小 Transformer 编码器(位置编码+多头自注意力+FFN)——已实测,测试集准确率≈0.82
 
 ### Phase 2 — RAG(`rag/`)  ✅ 已完成
 - [x] 文档分块:`chunk_by_heading` / `chunk_by_length`(`rag/chunking.py`)
@@ -106,7 +106,7 @@ antibody_risk
 - [x] Memory:会话滚动上下文 + 轻量事实积累(`agent/memory.py`)
 - [x] 多智能体编排:主管分解 → scan/ml/knowledge 专家协同 → 汇总(`agent/orchestrator.py`)
 - [x] CLI `agent-ask` / `agent-orchestrate`;测试全绿
-- [x] (可选,需 langchain)`agent/langchain_adapter.py`:把工具打包为 LangChain StructuredTool 并装配 ReAct/AgentExecutor
+- [x] (可选,需 langchain)`agent/langchain_adapter.py`:把工具打包为 LangChain StructuredTool 并装配 ReAct/AgentExecutor——已实测(兼容 0.x 与 1.x/LangGraph)
 
 ### Phase 4 — 集成与展示(大部分完成)
 - [x] Gradio 升级:`app.py` 现含 6 个 Tab(扫描/突变/批量 + 🔮 ML 预测 / 📚 RAG 问答 / 🤖 Agent),handler 已联调可用
@@ -115,7 +115,7 @@ antibody_risk
 - [x] `examples/train_ml_demo.py` 一键演示
 - [x] git 提交并推送(commit `137e840`)
 - [ ] 端到端 demo 一次性脚本与截图(可选)
-- [ ] 实测可选模块(torch Transformer / langchain adapter,需先安装依赖)
+- [x] 实测可选模块:torch Transformer(准确率≈0.82)与 langchain 适配器(工具调用验证通过)
 
 ---
 

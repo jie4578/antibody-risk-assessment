@@ -113,6 +113,16 @@ def test_langchain_adapter_wrap_tools_when_present():
     assert len(tools) >= 5
 
 
+def test_langchain_adapter_tool_invoke_when_present():
+    pytest.importorskip("langchain")
+    from agent.langchain_adapter import wrap_tools
+
+    tools = wrap_tools()
+    rag = [t for t in tools if t.name == "rag_search"][0]
+    result = rag.invoke({"question": "什么是脱酰胺化？"})
+    assert "脱酰胺" in str(result)
+
+
 # ---------- 多智能体编排 ----------
 def test_orchestrator_decompose():
     o = Orchestrator()
