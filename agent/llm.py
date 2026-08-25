@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional, Protocol
 
 # 常用抗体/风险场景关键词 → 工具意图
 _KB_TOOL = "rag_search"
+_LIT_TOOL = "literature_search"
 _SCAN_TOOL = "scan_antibody"
 _MUT_TOOL = "mutate_scan"
 _SCORE_TOOL = "risk_score"
@@ -24,6 +25,7 @@ _KEYWORDS = {
     _MUT_TOOL: ["突变", "mutat", "n55q", "改造"],
     _SCORE_TOOL: ["打分", "风险分", "分数", "score"],
     _PREDICT_TOOL: ["预测", "predict", "ml", "模型"],
+    _LIT_TOOL: ["文献", "论文", "研究进展", "最新", "综述", "literature", "paper", "recent", "研究", "PubMed", "pmid"],
     _KB_TOOL: ["为什么", "是什么", "哪里", "什么是", "原理", "风险", "知识", "检索", "查询", "what", "why", "how"],
 }
 
@@ -77,7 +79,11 @@ class MockLLM:
         if seq and _PREDICT_TOOL in tool_names and any(k in q for k in _KEYWORDS[_PREDICT_TOOL]):
             calls.append(ToolCall(_PREDICT_TOOL, {"sequence": seq}))
 
-        # 2) 知识类问题 → RAG
+        # 2) 文献类问题 → 优先真实文献检索（literature_search）
+        if _LIT_TOOL in tool_names and any(k in q for k in _KEYWORDS[_LIT_TOOL]):
+            calls.append(ToolCall(_LIT_TOOL, {"query": question}))
+
+        # 3) 知识类问题 → 内置知识库 RAG（保留为补充）
         if _KB_TOOL in tool_names and any(k in q for k in _KEYWORDS[_KB_TOOL]):
             calls.append(ToolCall(_KB_TOOL, {"question": question}))
 
@@ -101,7 +107,7 @@ class MockLLM:
         lines.append("（以上为基于离线规则/Mock 的演示性回复；接入真实 LLM 后由模型生成更自然的回答。）")
         return "\n".join(lines)
 
-    def complete(self, prompt: str) -> str:
+    def complete(self, prompt: str, system_prompt: Optional[str] = None) -> str:
         """离线模式：不调用真实 LLM，仅提示当前为 mock（用于 RAG 生成回答等场景）。"""
         return "（离线模式：未配置 API key，仅展示检索上下文与 prompt。在 .env 配置 DEEPSEEK_API_KEY 后此处会生成自然回答。）"
 
@@ -161,12 +167,13 @@ class _OpenAICompatBackend:
         )
         return resp.choices[0].message.content or ""
 
-    def complete(self, prompt: str) -> str:
+    def complete(self, prompt: str, system_prompt: Optional[str] = None) -> str:
         """直接用 prompt 生成回答（用于 RAG 等"检索→生成"场景）。"""
+        system = system_prompt or "你是抗体可开发性专家。请基于参考资料回答用户问题；资料不足就明确说明，不要编造。"
         resp = self._client.chat.completions.create(
             model=self._model,
             messages=[
-                {"role": "system", "content": "你是抗体可开发性专家。请基于参考资料回答用户问题；资料不足就明确说明，不要编造。"},
+                {"role": "system", "content": system},
                 {"role": "user", "content": prompt},
             ],
         )
@@ -195,10 +202,11 @@ def get_llm(name: str = "mock", **kwargs):
     raise ValueError(f"未知 LLM: {name}（可选 mock / openai / deepseek）")
 
 
-def generate_answer(question: str, context: str, backend: str = "auto") -> str:
+def generate_answer(question: str, context: str, backend: str = "auto", system_prompt: Optional[str] = None) -> str:
     """基于检索上下文，用 LLM 生成一段自然回答（RAG 的"生成"环节）。
 
     backend: 'auto' 按 .env 自动选（deepseek / openai / mock）；也可显式指定。
+    system_prompt: 可注入反幻觉等系统约束（默认用通用专家提示）。
     """
     if backend == "auto":
         from config import auto_llm_backend
@@ -211,4 +219,4 @@ def generate_answer(question: str, context: str, backend: str = "auto") -> str:
         f"【参考资料】\n{context.strip() or '（无）'}\n\n"
         f"【用户问题】\n{question}"
     )
-    return llm.complete(prompt)
+    return llm.complete(prompt, system_prompt=system_prompt)

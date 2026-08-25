@@ -118,6 +118,14 @@ antibody_risk
 - [x] 端到端 demo 一次性脚本:`examples/run_full_demo.py` 四层全跑 → `demo/DEMO_REPORT.md` + `demo/dashboard.png`(已生成)
 - [x] 实测可选模块:torch Transformer(准确率≈0.82)与 langchain 适配器(工具调用验证通过)
 
+### Phase 5 — Biomedical Literature RAG(`literature/`)  ✅ Stage A5 已完成
+- [x] 真实在线文献检索:Europe PMC(主)+ PubMed E-utilities(备),统一 Evidence 模型
+- [x] 反幻觉:title/PMID/DOI 等全部来自 API;Citation Validator 校验回答引用;无证据明确回答"未检索到足够相关的文献证据。"
+- [x] Query Generator(LLM 只生成检索词,离线规则兜底)、确定性 reranker、Context Builder
+- [x] 错误区分:API 不可用/超时/限速/解析失败 ≠ 无结果;SQLite 缓存 7 天
+- [x] 接入:Agent 工具 `literature_search`(保留 rag_search 兜底)、RAG Tab(证据/Sources)、CLI `literature-search`、`python -m literature.cli`
+- [x] Open Access 全文(仅 OA,不绕过版权);测试含 live 标记;5 个验收场景全部实测通过
+
 ---
 
 ## 4. 交付物

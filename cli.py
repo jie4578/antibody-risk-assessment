@@ -60,6 +60,13 @@ def _build_parser() -> argparse.ArgumentParser:
     ao.add_argument("--q", required=True, help="问题")
     ao.add_argument("--backend", default="mock", help="mock / openai / deepseek")
 
+    # literature-search
+    ls = sub.add_parser("literature-search", help="真实生物医学文献检索(Europe PMC/PubMed)+ 证据约束回答")
+    ls.add_argument("--q", required=True, help="用户问题")
+    ls.add_argument("--max-results", type=int, default=5, help="最多返回文献数(1-10)")
+    ls.add_argument("--source", default="auto", choices=["auto", "europepmc", "pubmed"])
+    ls.add_argument("--backend", default="auto", help="LLM 后端: auto/deepseek/openai/mock")
+
     return p
 
 
@@ -150,6 +157,17 @@ def cmd_agent_orchestrate(args) -> int:
     return 0
 
 
+def cmd_literature_search(args) -> int:
+    from literature.cli import main as literature_cli_main
+
+    return literature_cli_main([
+        "--query", args.q,
+        "--max-results", str(args.max_results),
+        "--source", args.source,
+        "--backend", args.backend,
+    ])
+
+
 def main(argv=None) -> int:
     # Windows 控制台编码兜底：真实 LLM 可能输出 GBK 无法编码的字符（下标/emoji），
     # 用 replace 替代而不是抛 UnicodeEncodeError 崩溃。
@@ -166,6 +184,7 @@ def main(argv=None) -> int:
         "rag-query": cmd_rag_query,
         "agent-ask": cmd_agent_ask,
         "agent-orchestrate": cmd_agent_orchestrate,
+        "literature-search": cmd_literature_search,
     }
     return handlers[args.command](args)
 

@@ -154,8 +154,35 @@ def tool_rag_search(question: str) -> str:
     return result["context"] or "（未检索到相关资料）"
 
 
+def tool_literature_search(query: str, max_results: int = 5, source: str = "auto") -> str:
+    """从 Europe PMC / PubMed 检索真实生物医学文献，返回结构化证据。
+
+    只返回真实 API 数据；未检索到时返回空提示；API 故障返回明确错误，不伪装成无结果。
+    """
+    from literature import LiteratureSearchError, search_literature
+
+    try:
+        evidence = search_literature(query, max_results=int(max_results), source=source)
+    except LiteratureSearchError as e:
+        return e.to_user_message()
+    if not evidence:
+        return "未检索到相关文献。"
+    lines = []
+    for i, ev in enumerate(evidence, 1):
+        lines.append(
+            f"[{i}] Title: {ev.title}\n"
+            f"    Authors: {', '.join(ev.authors) if ev.authors else '-'}\n"
+            f"    Journal: {ev.journal} ({ev.year})\n"
+            f"    PMID: {ev.pmid}\n"
+            f"    PMCID: {ev.pmcid or '-'}\n"
+            f"    DOI: {ev.doi or '-'}\n"
+            f"    Abstract: {ev.abstract[:300]}"
+        )
+    return "\n\n".join(lines)
+
+
 def default_tools() -> ToolRegistry:
-    """构建默认工具集：扫描 / 突变 / 打分 / ML 预测 / RAG。"""
+    """构建默认工具集：扫描 / 突变 / 打分 / ML 预测 / RAG / 文献检索。"""
     reg = ToolRegistry()
     reg.register(Tool(
         name="scan_antibody",
@@ -189,5 +216,19 @@ def default_tools() -> ToolRegistry:
         description="从抗体可开发性/PTM 知识库检索与问题最相关的资料。适用于「什么是/为什么/哪里」等知识问答。",
         func=tool_rag_search,
         parameters=[{"name": "question", "type": "string", "required": True, "description": "要检索的问题"}],
+    ))
+    reg.register(Tool(
+        name="literature_search",
+        description=(
+            "Search real biomedical literature using Europe PMC and PubMed. "
+            "Returns structured evidence obtained directly from external APIs. "
+            "Never invents literature metadata."
+        ),
+        func=tool_literature_search,
+        parameters=[
+            {"name": "query", "type": "string", "required": True, "description": "生物医学检索词(由 Query Generator 生成)"},
+            {"name": "max_results", "type": "integer", "required": False, "description": "最多返回条数(1-10,默认5)"},
+            {"name": "source", "type": "string", "required": False, "description": "auto/europepmc/pubmed"},
+        ],
     ))
     return reg

@@ -29,3 +29,7 @@ demo/
 
 # 本地私有笔记（岗位要求与映射，仅本地使用）
 LOCAL_JOB_NOTES.md
+
+# 文献检索缓存（SQLite，可再生成，绝不提交）
+literature_cache/
+*.db

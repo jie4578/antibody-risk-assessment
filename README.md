@@ -353,6 +353,41 @@ print(result["prompt"])                    # 可交给 LLM 的 prompt
 
 > 说明：内置知识库为教材/综述式摘要，用于技术演示 RAG 能力，**非真实文献引用**；接入真实文献库只需替换 `KNOWLEDGE_BASE` 或换成文档路径。
 
+### 8.4 Biomedical Literature RAG（Stage A5，真实文献检索与证据约束回答）
+
+> **This project retrieves biomedical literature from external APIs and uses retrieved evidence as the primary grounding source for LLM answers.**
+
+真实文献 RAG 与内置知识库 RAG 是**两个不同模块**：
+- 内置知识库 RAG（上文）：离线、教材式摘要，用于演示与兜底（`rag_search` 保留）。
+- **Biomedical Literature RAG**（`literature/`）：在线检索 **Europe PMC（主源）/ PubMed E-utilities（备源）**，只返回真实 API 数据，LLM 只能引用本次检索返回的 Evidence。
+
+**反幻觉铁律**：
+- 论文的 title / authors / journal / PMID / PMCID / DOI / year **必须全部来自 API 返回**；缺失置空，绝不由 LLM 补全。
+- 最终回答只能引用本次 `literature_search` 返回的 Evidence；引用会经过 **Citation Validator** 校验（回答中的 PMID/DOI 必须 ∈ Evidence）。
+- 未检索到文献时，明确回答 **"未检索到足够相关的文献证据。"**，不得编造论文。
+- API 故障 ≠ 无结果：检索服务不可用时明确提示"文献检索服务暂时不可用。"。
+
+**流水线**：User Question → Query Generator（LLM 只生成检索词，离线规则兜底）→ `search_literature()` → Evidence[] → Rerank（确定性 relevance score + Top-K）→ Context Builder → DeepSeek → Citation Validator → Final Answer。
+
+**用法**：
+
+```bash
+# CLI（真实检索 + LLM 回答 + 引用校验）
+python cli.py literature-search --q "什么是抗体脱酰胺化？"
+python -m literature.cli --query "antibody deamidation"
+
+# RAG Tab（app.py）：📚 RAG 知识问答 = 真实文献检索 + 证据 + LLM 回答 + Sources
+python app.py
+
+# 测试：离线单测全绿；真实网络测试手动执行
+python -m pytest -q            # 默认跳过 live
+python -m pytest -m live       # 真实调用 Europe PMC / PubMed
+```
+
+模块结构：`literature/`（evidence / search / query_generator / reranker / context / validator / cache / pipeline / cli / errors），SQLite 缓存默认 7 天（`literature_cache/` 已 gitignore）。全文仅对 Open Access 论文获取，不绕过版权。
+
+> 与 Risk Score 的关系：本模块的文献回答是**基于真实文献证据的检索增强生成**，与 `risk_score`（规则计算优先级评分，未经实验验证）相互独立，二者不可混淆。This score is a rule-based computational prioritization score and has not been experimentally validated.
+
 ## 9. LLM / Agent 智能体（新增）
 
 `agent/` 实现一个**可离线运行**的工具调用智能体与多智能体编排器，覆盖"LLM 应用与智能体开发 / Agent / Tool Calling / Memory / 多智能体协作"。

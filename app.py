@@ -74,21 +74,30 @@ def ml_predict_wrapper(seq):
 
 
 def rag_query_wrapper(question):
-    if not question or not str(question).strip():
-        return "请先输入问题。", "（未检索）", "（未生成）"
-    try:
-        result = _rag_pipeline().query(str(question))
-    except Exception as e:
-        return f"检索失败: {e}", "（错误）", "（未生成）"
-    context, prompt = result["context"], result["prompt"]
-    backend = _llm_backend()
-    try:
-        from agent.llm import generate_answer
+    """RAG Tab：Biomedical Literature RAG（真实文献检索 → 证据 → LLM 回答）。
 
-        answer = generate_answer(str(question), context, backend=backend)
-    except Exception as e:
-        answer = f"回答生成失败（后端 {backend}）: {e}"
-    return context, prompt, answer
+    返回 4 个输出: context / prompt / answer / sources。
+    """
+    if not question or not str(question).strip():
+        return "", "请先输入问题。", "（未检索）", "（未生成）"
+    from literature.context import build_sources
+    from literature.pipeline import answer_question
+
+    backend = _llm_backend()
+    res = answer_question(str(question), max_results=5, source="auto", backend=backend)
+    if res.status == "api_unavailable":
+        return "", "", res.error, "（检索服务不可用）"
+    if res.status == "no_evidence":
+        return "", "", res.answer, "（未检索到文献证据）"
+    sources_txt = "\n\n".join(
+        f"[{i}] {s['title']}\n    PMID: {s['pmid']} | DOI: {s['doi'] or '-'} | "
+        f"{s['journal']} ({s['year']}) | {s['source']}"
+        for i, s in enumerate(build_sources(res.evidence), 1)
+    ) or "（无）"
+    answer = res.answer
+    if res.status == "citation_failed":
+        answer += "\n\n[提示] 模型生成的引用无法通过证据校验。"
+    return res.context, res.prompt, answer, sources_txt
 
 
 def agent_ask_wrapper(question):
@@ -227,13 +236,14 @@ with gr.Blocks(title="抗体序列风险评估工具") as demo:
             ml_btn.click(fn=ml_predict_wrapper, inputs=[ml_seq], outputs=[ml_out, ml_level])
 
         with gr.TabItem("📚 RAG 知识问答"):
-            gr.Markdown("基于内置抗体可开发性 / PTM 知识库做**检索增强生成**：先检索最相关的知识片段，再生成带引用的上下文、prompt 与自然回答（配置 API key 后自动用真实 LLM 生成）。")
-            rag_q = gr.Textbox(label="你的问题", placeholder="例如：什么是脱酰胺化？抗体的 N-糖基化位点有什么风险？")
+            gr.Markdown("**Biomedical Literature RAG**：在线检索真实文献（Europe PMC / PubMed）→ 证据 → LLM 基于证据回答（配置 API key 后自动用真实 LLM；回答只引用本次检索返回的真实文献）。")
+            rag_q = gr.Textbox(label="你的问题", placeholder="例如：什么是抗体脱酰胺化？最近关于抗体脱酰胺化的研究有哪些？")
             rag_btn = gr.Button("检索并回答", variant="primary")
-            rag_answer = gr.Textbox(label="💬 回答（LLM 生成）", lines=6)
-            rag_context = gr.Textbox(label="📄 检索上下文（带 [n] 引用）", lines=8)
+            rag_answer = gr.Textbox(label="💬 回答（LLM 生成，引用真实文献）", lines=8)
+            rag_sources = gr.Textbox(label="📚 证据 / Sources（本次检索返回）", lines=8)
+            rag_context = gr.Textbox(label="📄 Evidence Context（喂给 LLM）", lines=8)
             rag_prompt = gr.Textbox(label="🪄 组装好的 prompt（可交给 LLM）", lines=5)
-            rag_btn.click(fn=rag_query_wrapper, inputs=[rag_q], outputs=[rag_context, rag_prompt, rag_answer])
+            rag_btn.click(fn=rag_query_wrapper, inputs=[rag_q], outputs=[rag_context, rag_prompt, rag_answer, rag_sources])
 
         with gr.TabItem("🤖 智能体 Agent"):
             gr.Markdown("**多智能体**：自动识别问题，调度专家智能体（规则扫描 / ML / 知识检索）协同回答。")

@@ -46,8 +46,11 @@ py-modules = ["core", "models", "scoring", "batch_analysis", "input_parser", "ap
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["ml*", "rag*", "agent*"]
+include = ["ml*", "rag*", "agent*", "literature*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+addopts = "-q -m 'not live'"
+markers = [
+    "live: 真实网络 API 测试（手动执行: pytest -m live）",
+]
