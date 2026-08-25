@@ -1,4 +1,11 @@
+# 核心运行依赖 —— 与 pyproject.toml [project.dependencies] 完全对齐
+# 可选依赖（lightgbm / torch / faiss / langchain 等）见 pyproject.toml [project.optional-dependencies]
+numpy>=1.21
 pandas>=1.5
+scipy>=1.7
+scikit-learn>=1.0
 gradio>=4.0
-pytest>=7.0
 openpyxl>=3.0
+
+# 测试
+pytest>=7.0

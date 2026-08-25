@@ -111,7 +111,9 @@ Gradio UI (app.py)            CLI (cli.py)
 基础安装（规则引擎 + ML + CLI + Gradio，默认即可运行）：
 
 ```bash
-pip install -r requirements.txt        # 或 pip install .（读取 pyproject.toml 依赖）
+pip install -r requirements.txt        # 与 pyproject.toml [dependencies] 完全对齐
+# 或
+pip install .                          # 推荐：读取 pyproject.toml 依赖
 ```
 
 可选增强（按需安装）：
