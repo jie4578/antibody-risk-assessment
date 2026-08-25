@@ -33,3 +33,6 @@ LOCAL_JOB_NOTES.md
 # 文献检索缓存（SQLite，可再生成，绝不提交）
 literature_cache/
 *.db
+
+# 其他工具的工作日志/记忆（如 CodeBuddy .workbuddy），不进库
+.workbuddy/
