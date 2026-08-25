@@ -382,6 +382,8 @@ python cli.py agent-ask --q "什么是脱酰胺化？" --backend deepseek
 python examples/run_real_llm_demo.py   # Agent + 多智能体 + LangChain 端到端
 ```
 
+**Gradio 界面会自动检测**：`.env` 配置了 key 时，📚 RAG 问答（生成自然回答）与 🤖 智能体 Agent 两个 Tab 自动使用真实 LLM；没有 key 或调用失败时自动回退离线 mock，并在日志中标注所用后端。
+
 配置步骤与说明见 `docs/REAL_LLM_SETUP.md`（`.env.example` 为模板，`.env` 不入库）。
 
 ### 9.2 代码用法

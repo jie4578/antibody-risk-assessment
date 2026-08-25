@@ -54,6 +54,13 @@ def _rag_pipeline():
 
 
 # ---------- 三个新 Tab 的 handler ----------
+def _llm_backend():
+    """自动选择 LLM 后端：.env 有 key → 真实(deepseek/openai)；否则 → mock(离线)。"""
+    from config import auto_llm_backend
+
+    return auto_llm_backend()
+
+
 def ml_predict_wrapper(seq):
     if not seq or not str(seq).strip():
         return "请先输入抗体序列。", "等待输入"
@@ -68,12 +75,20 @@ def ml_predict_wrapper(seq):
 
 def rag_query_wrapper(question):
     if not question or not str(question).strip():
-        return "请先输入问题。", "（未检索）"
+        return "请先输入问题。", "（未检索）", "（未生成）"
     try:
         result = _rag_pipeline().query(str(question))
     except Exception as e:
-        return f"检索失败: {e}", "（错误）"
-    return result["context"], result["prompt"]
+        return f"检索失败: {e}", "（错误）", "（未生成）"
+    context, prompt = result["context"], result["prompt"]
+    backend = _llm_backend()
+    try:
+        from agent.llm import generate_answer
+
+        answer = generate_answer(str(question), context, backend=backend)
+    except Exception as e:
+        answer = f"回答生成失败（后端 {backend}）: {e}"
+    return context, prompt, answer
 
 
 def agent_ask_wrapper(question):
@@ -91,13 +106,23 @@ def agent_orchestrate_wrapper(question):
         return "请先输入问题。", "（无回答）"
     from agent import Orchestrator
 
-    res = Orchestrator().run(str(question))
-    parts = [f"选择专家: {res['agents']}"]
+    backend = _llm_backend()
+    note = ""
+    try:
+        res = Orchestrator(lead_backend=backend, worker_backend=backend).run(str(question))
+    except Exception as e:
+        # 真实 LLM 失败（key 无效/余额不足/网络）→ 回退离线 mock，并给出提示
+        backend, note = "mock", f"\n[提示] 真实 LLM 调用失败，已回退离线 mock: {e}"
+        res = Orchestrator().run(str(question))
+    tag = "真实" if backend != "mock" else "离线"
+    parts = [f"后端: {backend}({tag})", f"选择专家: {res['agents']}"]
     for r in res["results"]:
         parts.append(f"=== {r['agent']} ===")
         for s in r["steps"]:
             parts.append(f"[{s['tool']}] {s['result'][:200]}")
-    return "\n".join(parts), res["answer"]
+    if note:
+        parts.append(note)
+    return "\n".join(parts), res["answer"] + note
 
 
 with gr.Blocks(title="抗体序列风险评估工具") as demo:
@@ -202,12 +227,13 @@ with gr.Blocks(title="抗体序列风险评估工具") as demo:
             ml_btn.click(fn=ml_predict_wrapper, inputs=[ml_seq], outputs=[ml_out, ml_level])
 
         with gr.TabItem("📚 RAG 知识问答"):
-            gr.Markdown("基于内置抗体可开发性 / PTM 知识库做**检索增强生成**：先检索最相关的知识片段，再生成带引用的上下文与 prompt。")
+            gr.Markdown("基于内置抗体可开发性 / PTM 知识库做**检索增强生成**：先检索最相关的知识片段，再生成带引用的上下文、prompt 与自然回答（配置 API key 后自动用真实 LLM 生成）。")
             rag_q = gr.Textbox(label="你的问题", placeholder="例如：什么是脱酰胺化？抗体的 N-糖基化位点有什么风险？")
-            rag_btn = gr.Button("检索", variant="primary")
-            rag_context = gr.Textbox(label="📄 检索上下文（带 [n] 引用）", lines=10)
-            rag_prompt = gr.Textbox(label="🪄 组装好的 prompt（可交给 LLM）", lines=6)
-            rag_btn.click(fn=rag_query_wrapper, inputs=[rag_q], outputs=[rag_context, rag_prompt])
+            rag_btn = gr.Button("检索并回答", variant="primary")
+            rag_answer = gr.Textbox(label="💬 回答（LLM 生成）", lines=6)
+            rag_context = gr.Textbox(label="📄 检索上下文（带 [n] 引用）", lines=8)
+            rag_prompt = gr.Textbox(label="🪄 组装好的 prompt（可交给 LLM）", lines=5)
+            rag_btn.click(fn=rag_query_wrapper, inputs=[rag_q], outputs=[rag_context, rag_prompt, rag_answer])
 
         with gr.TabItem("🤖 智能体 Agent"):
             gr.Markdown("**多智能体**：自动识别问题，调度专家智能体（规则扫描 / ML / 知识检索）协同回答。")

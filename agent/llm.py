@@ -101,6 +101,10 @@ class MockLLM:
         lines.append("（以上为基于离线规则/Mock 的演示性回复；接入真实 LLM 后由模型生成更自然的回答。）")
         return "\n".join(lines)
 
+    def complete(self, prompt: str) -> str:
+        """离线模式：不调用真实 LLM，仅提示当前为 mock（用于 RAG 生成回答等场景）。"""
+        return "（离线模式：未配置 API key，仅展示检索上下文与 prompt。在 .env 配置 DEEPSEEK_API_KEY 后此处会生成自然回答。）"
+
 
 def _guess_mutation(question: str) -> str:
     """从提问中猜测突变（如 N55Q）；找不到则给示例。"""
@@ -157,6 +161,17 @@ class _OpenAICompatBackend:
         )
         return resp.choices[0].message.content or ""
 
+    def complete(self, prompt: str) -> str:
+        """直接用 prompt 生成回答（用于 RAG 等"检索→生成"场景）。"""
+        resp = self._client.chat.completions.create(
+            model=self._model,
+            messages=[
+                {"role": "system", "content": "你是抗体可开发性专家。请基于参考资料回答用户问题；资料不足就明确说明，不要编造。"},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        return resp.choices[0].message.content or ""
+
 
 class OpenAILLM(_OpenAICompatBackend):
     def __init__(self, model: str = "gpt-4o-mini"):
@@ -178,3 +193,22 @@ def get_llm(name: str = "mock", **kwargs):
     if name == "deepseek":
         return DeepSeekLLM(**kwargs)
     raise ValueError(f"未知 LLM: {name}（可选 mock / openai / deepseek）")
+
+
+def generate_answer(question: str, context: str, backend: str = "auto") -> str:
+    """基于检索上下文，用 LLM 生成一段自然回答（RAG 的"生成"环节）。
+
+    backend: 'auto' 按 .env 自动选（deepseek / openai / mock）；也可显式指定。
+    """
+    if backend == "auto":
+        from config import auto_llm_backend
+
+        backend = auto_llm_backend()
+    llm = get_llm(backend)
+    prompt = (
+        "你是一个抗体可开发性领域专家。请基于以下参考资料回答用户问题；"
+        "参考资料不足就明确说明，不要编造。\n\n"
+        f"【参考资料】\n{context.strip() or '（无）'}\n\n"
+        f"【用户问题】\n{question}"
+    )
+    return llm.complete(prompt)

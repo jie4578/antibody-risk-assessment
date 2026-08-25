@@ -28,3 +28,20 @@ def test_get_env_default():
 def test_require_env_missing_raises():
     with pytest.raises(RuntimeError, match="NON_EXISTENT_KEY_XYZ"):
         require_env("NON_EXISTENT_KEY_XYZ")
+
+
+def test_auto_llm_backend_mock_without_key(monkeypatch):
+    import config
+
+    monkeypatch.setattr(config, "_DOTENV_PATHS", [])
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    assert config.auto_llm_backend() == "mock"
+
+
+def test_auto_llm_backend_deepseek_with_key(monkeypatch):
+    import config
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    assert config.auto_llm_backend() == "deepseek"
