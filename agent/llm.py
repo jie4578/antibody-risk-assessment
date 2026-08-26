@@ -39,15 +39,31 @@ class ToolCall:
 
 @dataclass
 class Observation:
-    """一次工具执行的结果。"""
+    """一次工具执行的结果（含调用上下文，供真实 LLM 多轮函数调用重建消息）。"""
     tool: str
     result: str
+    call_id: str = ""
+    arguments: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class ReActStep:
+    """ReAct 单步决策：要么调用一个工具(Action)，要么给出最终答案(Final Answer)。"""
+    tool_call: Optional[ToolCall] = None
+    final_answer: str = ""
+    thought: str = ""
+
+    @property
+    def is_final(self) -> bool:
+        return self.tool_call is None
 
 
 class LLMBackend(Protocol):
-    """LLM 后端协议：规划要调用的工具 + 生成最终答案。"""
+    """LLM 后端协议：规划工具 + 单步决策(ReAct) + 生成最终答案。"""
 
     def plan(self, question: str, tools: List["Tool"]) -> List[ToolCall]: ...
+
+    def step(self, question: str, observations: List[Observation], tools: List["Tool"]) -> ReActStep: ...
 
     def answer(self, question: str, observations: List[Observation]) -> str: ...
 
@@ -68,7 +84,6 @@ class MockLLM:
         tool_names = {t.name for t in tools}
         q = (question or "").lower()
         seq = _looks_like_sequence(question)
-
         # 1) 只有文本里确实含抗体序列时，才触发序列类工具（扫描/突变/打分/ML预测）
         if seq and _SCAN_TOOL in tool_names:
             calls.append(ToolCall(_SCAN_TOOL, {"sequence": seq}))
@@ -94,6 +109,17 @@ class MockLLM:
                 seen.add(c.name)
                 out.append(c)
         return out[:3]
+
+    def step(self, question: str, observations: List[Observation], tools: List["Tool"]) -> ReActStep:
+        """Mock 的单步推进：按规划逐条执行工具；全部执行完后给出最终答案。
+
+        这样即使离线也能演示"多步迭代"(每步只调一个工具,观察后再决定下一步)。
+        """
+        plan = self.plan(question, tools)
+        if len(observations) < len(plan):
+            call = plan[len(observations)]
+            return ReActStep(tool_call=call, thought=f"Mock: 第 {len(observations) + 1}/{len(plan)} 步调用 {call.name}")
+        return ReActStep(final_answer=self.answer(question, observations), thought="Mock: 已执行完规划，给出最终答案")
 
     def answer(self, question: str, observations: List[Observation]) -> str:
         if not observations:
@@ -155,6 +181,41 @@ class _OpenAICompatBackend:
             args = json.loads(tc.function.arguments or "{}")
             calls.append(ToolCall(tc.function.name, args))
         return calls
+
+    def step(self, question: str, observations: List[Observation], tools: List["Tool"]) -> ReActStep:
+        """真 ReAct 单步：把问题与全部历史观察重建为多轮消息，让模型自主决定
+        "继续调用工具(Action)" 还是 "给出最终答案(Final Answer)"。"""
+        import json
+        import uuid
+
+        schemas = [t.to_schema() for t in tools]
+        messages: List[dict] = [{"role": "user", "content": question}]
+        for obs in observations:
+            call_id = obs.call_id or f"call_{uuid.uuid4().hex[:8]}"
+            messages.append({
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [{
+                    "id": call_id,
+                    "type": "function",
+                    "function": {"name": obs.tool, "arguments": json.dumps(obs.arguments or {})},
+                }],
+            })
+            messages.append({"role": "tool", "tool_call_id": call_id, "content": obs.result[:2000]})
+
+        resp = self._client.chat.completions.create(
+            model=self._model,
+            messages=messages,
+            tools=schemas,
+            tool_choice="auto",
+        )
+        msg = resp.choices[0].message
+        tool_calls = msg.tool_calls or []
+        if tool_calls:
+            tc = tool_calls[0]
+            args = json.loads(tc.function.arguments or "{}")
+            return ReActStep(tool_call=ToolCall(tc.function.name, args), thought=msg.content or "")
+        return ReActStep(final_answer=msg.content or "", thought=msg.content or "")
 
     def answer(self, question: str, observations: List[Observation]) -> str:
         context = "\n".join(f"[{o.tool}] {o.result[:800]}" for o in observations)

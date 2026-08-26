@@ -13,12 +13,30 @@ SOURCE_LABEL = {"europepmc": "Europe PMC", "pubmed": "PubMed"}
 
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="literature.cli", description="Biomedical Literature RAG")
-    p.add_argument("--query", "-q", required=True, help="用户问题")
+    p.add_argument("--query", "-q", default=None, help="用户问题")
     p.add_argument("--max-results", type=int, default=5, help="最多返回文献数(1-10)")
     p.add_argument("--source", default="auto", choices=["auto", "europepmc", "pubmed"])
     p.add_argument("--backend", default="auto", help="LLM 后端: auto/deepseek/openai/mock")
     p.add_argument("--fulltext", action="store_true", help="(增强)对 Open Access 论文尝试获取全文")
+    p.add_argument("--eval", action="store_true", help="运行评估基准(离线确定性;加 --live 跑在线)")
+    p.add_argument("--live", action="store_true", help="配合 --eval 运行在线检索基准与引用通过率")
     args = p.parse_args(argv)
+
+    if args.eval:
+        import json
+
+        from .eval_benchmark import citation_pass_rate, run_live_benchmark, run_offline_benchmark
+
+        if args.live:
+            print(json.dumps(run_live_benchmark(), ensure_ascii=False, indent=2))
+            print("\n引用通过率(live):")
+            print(json.dumps(citation_pass_rate(["什么是抗体脱酰胺化？", "什么是抗体糖基化？"]), ensure_ascii=False, indent=2))
+        else:
+            print(json.dumps(run_offline_benchmark(), ensure_ascii=False, indent=2))
+        return 0
+
+    if not args.query:
+        p.error("--query 必填（或使用 --eval 运行评估）")
 
     from .pipeline import answer_question
 

@@ -390,6 +390,17 @@ python -m pytest -m live       # 真实调用 Europe PMC / PubMed
 
 > 与 Risk Score 的关系：本模块的文献回答是**基于真实文献证据的检索增强生成**，与 `risk_score`（规则计算优先级评分，未经实验验证）相互独立，二者不可混淆。This score is a rule-based computational prioritization score and has not been experimentally validated.
 
+### 8.5 评估体系（Evaluation）
+
+"如何验证系统好坏"是面试必问。本模块提供两层评估（`literature/eval_benchmark.py`）：
+
+- **离线确定性基准**（`python -m literature.cli --eval`）：固定小语料 + 人工标注相关 PMID，跑 rerank 统计 **hit@k / MRR@k**，作为回归基线（确定性、不联网、进测试）。
+  - 实测：4 个查询 **avg_hit@5 = 1.0, avg_mrr@5 = 1.0**（构造语料的 sanity 基线）。
+- **在线基准**（`python -m literature.cli --eval --live`，需网络/key）：真实检索若干查询统计 hit@5，并用 `answer_question` 统计**引用校验通过率**。
+  - 实测（2026 现场）：检索 hit@5 = 0.33（3 个真实查询中 1 个命中人工标注 PMID——固定期望 PMID 判定偏严，且真实文献库会漂移，如实报告）；**引用校验通过率 = 100%（2/2）**——回答中出现的 PMID/DOI 全部属于本次检索证据，无幻觉引用。
+
+> 说明：离线基准用于**回归防退化**（改检索逻辑后跑一遍），在线基准用于**对外展示与自检**；两者都只衡量"引用真实性"与"检索命中"，不声称衡量回答的医学正确性。
+
 ## 9. LLM / Agent 智能体（新增）
 
 `agent/` 实现一个**可离线运行**的工具调用智能体与多智能体编排器，覆盖"LLM 应用与智能体开发 / Agent / Tool Calling / Memory / 多智能体协作"。
@@ -399,7 +410,7 @@ agent/
 ├── llm.py           LLM 后端抽象:MockLLM(离线) + OpenAILLM / DeepSeekLLM(可选,drop-in);ToolCall / Observation
 ├── tools.py         工具注册:scan_antibody / mutate_scan / risk_score / predict_risk / rag_search
 ├── memory.py        会话记忆(滚动上下文 + 轻量事实积累)
-├── agent.py         ReAct 智能体:plan → act(调用工具) → observe → answer
+├── agent.py         真 ReAct 迭代循环:Thought → Action(单步调工具) → Observation → 再决策 → Final Answer;工具失败反思重试;max_steps 截断
 └── orchestrator.py  多智能体编排:主管分解任务 → scan_agent / ml_agent / knowledge_agent 协同 → 汇总
 ```
 

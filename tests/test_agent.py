@@ -4,7 +4,7 @@
 import pytest
 
 from agent import Agent, ConversationMemory, MockLLM, Orchestrator, Tool, ToolRegistry
-from agent.llm import DeepSeekLLM, get_llm
+from agent.llm import DeepSeekLLM, ToolCall, get_llm
 from agent.tools import default_tools, tool_rag_search, tool_risk_score, tool_scan_antibody
 
 SEQ = (
@@ -143,3 +143,87 @@ def test_orchestrator_run_aggregates():
     # 汇聚结果应同时包含规则扫描与知识检索
     combined = "".join(r["answer"] for r in res["results"])
     assert "风险" in combined or "脱酰胺" in combined
+
+
+# ---------- 真 ReAct 迭代循环 ----------
+def test_react_multistep_executes_tools_in_order():
+    # 含序列 + 突变关键词 + "风险" → mock 规划为 [scan_antibody, mutate_scan, rag_search]，循环应逐步执行
+    a = Agent()
+    r = a.run("评估这条序列的风险并做 N55Q 突变：" + SEQ)
+    tools = [s["tool"] for s in r["steps"] if s["type"] == "tool"]
+    assert tools == ["scan_antibody", "mutate_scan", "rag_search"]
+    assert any(s["type"] == "final" for s in r["steps"])
+
+
+def test_react_stops_early_with_final_answer():
+    # 无任何工具触发 → 第一轮即 Final Answer，steps 里不应有 tool 步骤
+    a = Agent()
+    r = a.run("你好")
+    assert all(s["type"] == "final" for s in r["steps"])
+    assert r["answer"]
+
+
+class _StubLLM:
+    """固定返回工具调用序列、最后给 Final Answer 的桩 LLM。"""
+
+    def __init__(self, calls, final="done"):
+        self.calls = list(calls)
+        self.final = final
+
+    def plan(self, question, tools):
+        return list(self.calls)
+
+    def step(self, question, observations, tools):
+        from agent.llm import ReActStep
+
+        if len(observations) < len(self.calls):
+            return ReActStep(tool_call=self.calls[len(observations)])
+        return ReActStep(final_answer=self.final)
+
+    def answer(self, question, observations):
+        return self.final
+
+
+def test_react_tool_failure_retries_once(monkeypatch):
+    from agent import Tool, ToolRegistry
+    from agent.agent import Agent
+
+    calls = {"n": 0}
+
+    def bad_func(**kwargs):
+        calls["n"] += 1
+        return "工具 bad_tool 执行异常: boom"
+
+    reg = ToolRegistry()
+    reg.register(Tool(name="bad_tool", description="always fails", func=bad_func))
+    agent = Agent(backend=_StubLLM([ToolCall("bad_tool", {})]), tools=reg, max_steps=3)
+    r = agent.run("随便")
+    assert calls["n"] == 2  # 初始 + 反思重试一次
+    tool_step = [s for s in r["steps"] if s["type"] == "tool"][0]
+    assert tool_step["retried"] is True
+
+
+class _NeverFinalLLM:
+    """永远返回工具调用、从不给 Final Answer 的桩（用于验证 max_steps 截断）。"""
+
+    def plan(self, question, tools):
+        return []
+
+    def step(self, question, observations, tools):
+        from agent.llm import ReActStep
+
+        return ReActStep(tool_call=ToolCall("risk_score", {"sequence": "ACD"}))
+
+    def answer(self, question, observations):
+        return "done"
+
+
+def test_react_max_steps_stops_and_answers():
+    from agent.agent import Agent
+
+    # 桩永远返回工具调用 → 循环应被 max_steps 截断并走 answer 兜底
+    agent = Agent(backend=_NeverFinalLLM(), tools=None, max_steps=3)
+    r = agent.run("打分")
+    assert r["answer"] == "done"
+    tool_count = len([s for s in r["steps"] if s["type"] == "tool"])
+    assert tool_count == 3  # max_steps=3 全部用于工具步后走兜底回答

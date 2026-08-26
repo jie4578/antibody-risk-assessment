@@ -126,6 +126,13 @@ antibody_risk
 - [x] 接入:Agent 工具 `literature_search`(保留 rag_search 兜底)、RAG Tab(证据/Sources)、CLI `literature-search`、`python -m literature.cli`
 - [x] Open Access 全文(仅 OA,不绕过版权);测试含 live 标记;5 个验收场景全部实测通过
 
+### Phase 6 — 真 ReAct + 评估体系  ✅ 已完成
+- [x] `agent/agent.py` 改为真 ReAct 迭代循环:LLM 单步决策(step)→ 执行工具 → 观察喂回 → 再决策,直到 Final Answer;工具失败反思重试一次;max_steps 截断兜底
+- [x] MockLLM 支持单步推进(离线可演示多步迭代);真实 DeepSeek 函数调用多轮循环实测通过(rag_search→literature_search→final)
+- [x] 评估体系 `literature/eval_benchmark.py`:hit@k/MRR@k、离线确定性基准(回归防退化)、在线基准与引用通过率
+- [x] 实测:离线 avg_hit@5=1.0;在线检索 hit@5=0.33(固定期望 PMID 偏严);引用校验通过率 100%(2/2)
+- [x] 新增迭代循环 + 评估测试;全量 237 通过 + 3 live
+
 ---
 
 ## 4. 交付物
