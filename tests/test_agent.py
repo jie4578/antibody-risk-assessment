@@ -227,3 +227,25 @@ def test_react_max_steps_stops_and_answers():
     assert r["answer"] == "done"
     tool_count = len([s for s in r["steps"] if s["type"] == "tool"])
     assert tool_count == 3  # max_steps=3 全部用于工具步后走兜底回答
+
+
+# ---------- 本地 Ollama 后端 ----------
+def test_get_llm_local_constructs():
+    from agent import LocalOllamaLLM, get_llm
+
+    llm = get_llm("local")
+    assert isinstance(llm, LocalOllamaLLM)
+    assert llm._model  # 模型名已从 env 解析(默认 qwen2.5:7b)
+
+
+@pytest.mark.live
+def test_local_ollama_completion_live():
+    """本地 Ollama 推理(live)：Ollama 服务不可用时跳过。"""
+    from agent import get_llm
+
+    llm = get_llm("local")
+    try:
+        out = llm.complete("只回复两个词: hello world")
+    except Exception as e:
+        pytest.skip(f"本地 Ollama 不可用: {e}")
+    assert isinstance(out, str) and out.strip()

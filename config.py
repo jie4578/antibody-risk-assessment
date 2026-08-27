@@ -70,8 +70,15 @@ def require_env(key: str) -> str:
 
 
 def auto_llm_backend() -> str:
-    """自动选择 LLM 后端：有 DeepSeek key → 'deepseek'；有 OpenAI key → 'openai'；否则 'mock'（离线）。"""
+    """自动选择 LLM 后端。
+
+    优先级：
+      OLLAMA_PREFER=1 → 'local'（本地 Ollama，GPU 离线）
+      有 DeepSeek key → 'deepseek'；有 OpenAI key → 'openai'；否则 'mock'（离线）。
+    """
     load_dotenv()
+    if os.environ.get("OLLAMA_PREFER"):
+        return "local"
     if os.environ.get("DEEPSEEK_API_KEY"):
         return "deepseek"
     if os.environ.get("OPENAI_API_KEY"):

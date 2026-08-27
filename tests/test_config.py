@@ -45,3 +45,11 @@ def test_auto_llm_backend_deepseek_with_key(monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
     assert config.auto_llm_backend() == "deepseek"
+
+
+def test_auto_llm_backend_local_prefer(monkeypatch):
+    import config
+
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    monkeypatch.setenv("OLLAMA_PREFER", "1")
+    assert config.auto_llm_backend() == "local"

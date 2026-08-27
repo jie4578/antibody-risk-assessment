@@ -147,22 +147,23 @@ def _guess_mutation(question: str) -> str:
 
 
 class _OpenAICompatBackend:
-    """可选：基于 OpenAI 兼容接口（OpenAI / DeepSeek 等）的真实函数调用后端。"""
+    """可选：基于 OpenAI 兼容接口（OpenAI / DeepSeek / Ollama 本地 等）的真实函数调用后端。"""
 
-    def __init__(self, model: str, api_key_env: str, base_url: str):
+    def __init__(self, model: str, api_key_env: str, base_url: str, *, api_key: Optional[str] = None):
         try:
             from openai import OpenAI
         except Exception as e:  # pragma: no cover
             raise ImportError("需要安装 openai 包才能使用真实 LLM 后端") from e
         from config import get_env
 
-        key = get_env(api_key_env)
-        if not key:
+        if api_key is None:
+            api_key = get_env(api_key_env)
+        if not api_key:
             raise RuntimeError(
                 f"缺少 {api_key_env}。请在仓库根目录创建 .env（参考 .env.example），"
                 f"写入 {api_key_env}=<your-key> 后重试。"
             )
-        self._client = OpenAI(api_key=key, base_url=base_url)
+        self._client = OpenAI(api_key=api_key, base_url=base_url)
         self._model = model
 
     def plan(self, question: str, tools: List["Tool"]) -> List[ToolCall]:
@@ -251,8 +252,25 @@ class DeepSeekLLM(_OpenAICompatBackend):
         super().__init__(model, "DEEPSEEK_API_KEY", "https://api.deepseek.com")
 
 
+class LocalOllamaLLM(_OpenAICompatBackend):
+    """本地 Ollama 后端（OpenAI 兼容接口，GPU 本地推理，无需真实 API key）。
+
+    配置（.env）:
+        OLLAMA_MODEL:     模型名，默认 qwen2.5:7b
+        OLLAMA_BASE_URL:  Ollama OpenAI 兼容端点，默认 http://localhost:11434/v1
+    """
+
+    def __init__(self, model: str = "", base_url: str = ""):
+        from config import get_env
+
+        model = model or get_env("OLLAMA_MODEL", "qwen2.5:7b")
+        base_url = base_url or get_env("OLLAMA_BASE_URL", "http://localhost:11434/v1")
+        # Ollama 不需要真实 key，传任意非空字符串即可
+        super().__init__(model, "OLLAMA_API_KEY", base_url, api_key="ollama")
+
+
 def get_llm(name: str = "mock", **kwargs):
-    """LLM 工厂。name ∈ {mock, openai, deepseek}。"""
+    """LLM 工厂。name ∈ {mock, openai, deepseek, local}。"""
     name = (name or "mock").lower()
     if name == "mock":
         return MockLLM()
@@ -260,7 +278,9 @@ def get_llm(name: str = "mock", **kwargs):
         return OpenAILLM(**kwargs)
     if name == "deepseek":
         return DeepSeekLLM(**kwargs)
-    raise ValueError(f"未知 LLM: {name}（可选 mock / openai / deepseek）")
+    if name in ("local", "ollama"):
+        return LocalOllamaLLM(**kwargs)
+    raise ValueError(f"未知 LLM: {name}（可选 mock / openai / deepseek / local）")
 
 
 def generate_answer(question: str, context: str, backend: str = "auto", system_prompt: Optional[str] = None) -> str:

@@ -10,7 +10,7 @@
 #   - 可选真实 LLM：OpenAI / DeepSeek 后端是 drop-in（接入 key 即启用真实函数调用）；
 #   - 把既有规则引擎 / ML / RAG 封装为"工具"，被 Agent 调用（体现工程成果工具化）。
 
-from .llm import MockLLM, OpenAILLM, DeepSeekLLM, get_llm, ToolCall, Observation
+from .llm import MockLLM, OpenAILLM, DeepSeekLLM, LocalOllamaLLM, get_llm, ToolCall, Observation
 from .tools import Tool, ToolRegistry, default_tools
 from .memory import ConversationMemory
 from .agent import Agent
@@ -20,6 +20,7 @@ __all__ = [
     "MockLLM",
     "OpenAILLM",
     "DeepSeekLLM",
+    "LocalOllamaLLM",
     "get_llm",
     "ToolCall",
     "Observation",

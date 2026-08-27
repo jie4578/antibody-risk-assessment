@@ -1,12 +1,37 @@
-# 接入真实 LLM(DeepSeek / OpenAI)+ LangChain 端到端
+# 接入真实 LLM(DeepSeek / OpenAI / 本地 Ollama)+ LangChain 端到端
 
-本项目默认用离线 `MockLLM` 演示 Agent 循环;接入真实 LLM 只需一个 API key,即可启用
-**真实函数调用(Tool Calling)+ 真实回答**,并跑通 **LangChain 端到端**。
+本项目默认用离线 `MockLLM` 演示 Agent 循环;接入真实 LLM 只需一个 API key(**或本地 Ollama,无需 key**),
+即可启用**真实函数调用(Tool Calling)+ 真实回答**,并跑通 **LangChain 端到端**。
 
-## 1. 获取 API key
+## 0. 方式一览
+
+| 后端 | 需要 | 成本 | 适用 |
+| --- | --- | --- | --- |
+| `mock`(默认) | 无 | 0 | 离线/CI |
+| `deepseek` | `.env` 填 DEEPSEEK_API_KEY | 极低 | 正式演示/高质量回答 |
+| `openai` | `.env` 填 OPENAI_API_KEY | 有费用 | 可选 |
+| `local`(Ollama) | 本地装 Ollama + 拉模型 | 0(用你 GPU) | 离线/隐私/现场演示 |
+
+## 1. 获取 API key(DeepSeek / OpenAI)
 
 - **DeepSeek(推荐,便宜)**:https://platform.deepseek.com → 注册 → API Keys → 创建,充值几元即可。
 - **OpenAI(可选)**:https://platform.openai.com → API keys。
+
+## 1b. 本地 Ollama(无 key,用本地 GPU)
+
+```bash
+# 1) 安装 Ollama(Windows): https://ollama.com → 安装后启动托盘应用
+# 2) 拉取模型(支持工具调用的 Qwen2.5,7B Q4 约 5-6GB 显存,5060 8GB 可跑)
+ollama pull qwen2.5:7b
+
+# 3) .env 可选配置(OLLAMA_PREFER=1 表示 auto 后端优先用本地)
+#    OLLAMA_MODEL=qwen2.5:7b
+#    OLLAMA_BASE_URL=http://localhost:11434/v1
+#    OLLAMA_PREFER=1
+
+# 4) 验证本地推理
+python cli.py agent-ask --q "什么是脱酰胺化？" --backend local
+```
 
 ## 2. 写入 .env(不提交)
 
