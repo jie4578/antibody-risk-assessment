@@ -76,7 +76,11 @@ def _default_cdr():
 
 
 def tool_scan_antibody(sequence: str) -> str:
-    """扫描抗体可变区序列的化学稳定性风险基序，并给出规则风险评分。"""
+    """扫描抗体可变区序列的化学稳定性风险基序，并给出规则风险评分。
+
+    输出为结构化文本（确定性，直接供 LLM 消费）：
+      序列长度 / 规则风险评分(风险等级) / 命中清单（每条含类别、基序、位置、区域）。
+    """
     from core import analyze_sequence
     from scoring import compute_risk_score
 
@@ -87,7 +91,11 @@ def tool_scan_antibody(sequence: str) -> str:
     if result.errors:
         return f"错误: {'；'.join(result.errors)}"
     score = compute_risk_score([("sequence", result)])
-    hits = [f"{r.motif}@{r.position}({r.region})" for r in result.risks]
+    hits = [
+        f"[{r.category}] {r.motif}@{r.position}({r.region})"
+        + ("[heuristic,未经实验验证]" if r.evidence_level == "heuristic" else "")
+        for r in result.risks
+    ]
     return (
         f"序列长度 {result.sequence_length} aa；"
         f"规则风险评分 {score.overall_score}（{score.risk_level}）；"
@@ -96,13 +104,23 @@ def tool_scan_antibody(sequence: str) -> str:
 
 
 def tool_mutate_scan(sequence: str, mutation: str) -> str:
-    """执行点突变并重新扫描，判断风险是否被消除。"""
-    from core import mutate_and_rescan
+    """执行点突变并重新扫描，给出突变前后风险对比（确定性结构化文本）。"""
+    from collections import Counter
+
+    from core import analyze_sequence, mutate_and_rescan
 
     report, risks, summary, mutated = mutate_and_rescan(sequence, mutation, *_default_cdr())
     if "突变失败" in summary:
         return summary
-    return f"突变 {mutation} 后序列: {mutated}\n{summary}\n{report.splitlines()[-2] if len(report.splitlines()) >= 2 else report}"
+    before = dict(Counter(r.category for r in analyze_sequence(sequence, *_default_cdr()).risks))
+    after = dict(Counter(r.category for r in risks))
+    hits = "; ".join(f"[{r.category}] {r.motif}@{r.position}({r.region})" for r in risks) if risks else "无"
+    return (
+        f"突变 {mutation} 成功 → 新序列: {mutated}\n"
+        f"突变前风险类别计数: {before}\n"
+        f"突变后风险类别计数: {after}\n"
+        f"突变后命中: {hits}"
+    )
 
 
 def tool_risk_score(sequence: str) -> str:
@@ -181,18 +199,56 @@ def tool_literature_search(query: str, max_results: int = 5, source: str = "auto
     return "\n\n".join(lines)
 
 
+def tool_batch_analysis(csv_path: str = "", csv_text: str = "") -> str:
+    """批量分析抗体序列（CSV 文件路径 或 内联 CSV 文本），返回逐行结构化摘要。
+
+    输入二选一：
+      csv_path: 本地 CSV/XLSX/FASTA 文件路径
+      csv_text: 内联 CSV 文本（含 antibody_id,VH,VL 表头）
+    输出：每行 antibody_id / analysis_status / 风险计数 / risk_score / risk_level / warnings。
+    """
+    import io
+
+    import pandas as pd
+
+    from batch_analysis import batch_analysis as run_batch
+
+    if csv_path and not csv_text:
+        from input_parser import load_batch_input
+
+        df = load_batch_input(csv_path)
+    elif csv_text and not csv_path:
+        df = pd.read_csv(io.StringIO(csv_text))
+    else:
+        return "请提供 csv_path（文件路径）或 csv_text（内联 CSV 文本），二选一。"
+    missing = [c for c in ("antibody_id", "VH", "VL") if c not in df.columns]
+    if missing:
+        return f"CSV 缺少必需列: {', '.join(missing)}"
+    result = run_batch(df)
+    lines = [f"批量分析 {len(result)} 条记录:"]
+    for _, row in result.iterrows():
+        warn = f" | warnings: {row['warnings']}" if row["warnings"] else ""
+        lines.append(
+            f"- {row['antibody_id']}: status={row['analysis_status']} "
+            f"PTM={row['PTM_risk_count']} liability={row['liability_risk_count']} "
+            f"total={row['total_risk_count']} risk_score={row['risk_score']} "
+            f"risk_level={row['risk_level']}{warn}"
+        )
+    return "\n".join(lines)
+
+
 def default_tools() -> ToolRegistry:
-    """构建默认工具集：扫描 / 突变 / 打分 / ML 预测 / RAG / 文献检索。"""
+    """构建默认工具集：扫描 / 突变 / 打分 / ML 预测 / RAG / 文献检索 / 批量分析。"""
     reg = ToolRegistry()
     reg.register(Tool(
         name="scan_antibody",
-        description="扫描抗体可变区序列的化学稳定性风险基序，给出规则风险评分与命中清单。适用于「评估/分析某条序列」。",
+        description="扫描抗体可变区序列的化学稳定性风险基序（脱酰胺/异构化/氧化/N-糖基化/O-糖基化热点），给出规则风险评分与命中清单。适用于「评估/分析某条序列/糖基化风险」。",
         func=tool_scan_antibody,
         parameters=[{"name": "sequence", "type": "string", "required": True, "description": "抗体可变区氨基酸序列"}],
     ))
     reg.register(Tool(
         name="mutate_scan",
-        description="对序列做点突变并重新扫描，验证风险是否被消除。适用于「把位置X突变成Y」或评估改造。",
+        description="对序列做点突变并重新扫描，输出突变前后风险类别对比。适用于「把位置X突变成Y」「突变后风险是否消除」。",
         func=tool_mutate_scan,
         parameters=[
             {"name": "sequence", "type": "string", "required": True, "description": "原始抗体序列"},
@@ -220,15 +276,24 @@ def default_tools() -> ToolRegistry:
     reg.register(Tool(
         name="literature_search",
         description=(
-            "Search real biomedical literature using Europe PMC and PubMed. "
-            "Returns structured evidence obtained directly from external APIs. "
-            "Never invents literature metadata."
+            "用于检索真实科学文献（Europe PMC / PubMed），返回 PMID、DOI、摘要等真实证据。"
+            "当序列扫描发现重要 PTM、chemical liability 或其他需要证据支持的风险时，可调用该工具获取文献证据。"
+            "Returns structured evidence obtained directly from external APIs. Never invents literature metadata."
         ),
         func=tool_literature_search,
         parameters=[
             {"name": "query", "type": "string", "required": True, "description": "生物医学检索词(由 Query Generator 生成)"},
             {"name": "max_results", "type": "integer", "required": False, "description": "最多返回条数(1-10,默认5)"},
             {"name": "source", "type": "string", "required": False, "description": "auto/europepmc/pubmed"},
+        ],
+    ))
+    reg.register(Tool(
+        name="batch_analysis",
+        description="批量分析抗体序列 CSV（本地文件路径或内联 CSV 文本），逐条返回状态/PTM/liability/风险评分。适用于「批量分析」「分析这个 CSV」。",
+        func=tool_batch_analysis,
+        parameters=[
+            {"name": "csv_path", "type": "string", "required": False, "description": "本地 CSV/XLSX/FASTA 文件路径"},
+            {"name": "csv_text", "type": "string", "required": False, "description": "内联 CSV 文本（表头 antibody_id,VH,VL）"},
         ],
     ))
     return reg
