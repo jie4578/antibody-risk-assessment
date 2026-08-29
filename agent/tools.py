@@ -7,11 +7,60 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
 # 项目根目录（便于定位 ML 产物）
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# ---------- v9.3：工具输入来源边界（确定性） ----------
+_AMINO_ACIDS = frozenset("ACDEFGHIKLMNPQRSTVWY")
+_MIN_SEQUENCE_LEN = 5  # 最小可接受序列长度（含短肽测试用例如 AAANVSTT）
+SEQUENCE_TOOLS = ("scan_antibody", "mutate_scan")  # 需要用户序列输入的工具
+
+
+def extract_user_sequence(user_query: str) -> str:
+    """从用户输入中提取一段抗体序列（仅含 20 种标准氨基酸）。
+
+    找不到或不可靠 → 返回空串。位点（N55 / NG@55-56）不是序列。
+    """
+    q = str(user_query or "")
+    best = ""
+    for token in re.split(r"[\s,，;；、]+", q):
+        token = token.strip().upper()
+        if len(token) < _MIN_SEQUENCE_LEN or any(c not in _AMINO_ACIDS for c in token):
+            continue
+        if len(token) > len(best):
+            best = token
+    return best
+
+
+def sequence_source_of(user_query: str, sequence: str) -> str:
+    """判定序列来源：user_provided / unavailable / invalid。
+
+    - 序列必须是标准氨基酸字符串、长度达标、且能在用户问题中逐字找到；
+    - 用户只给位点/评分/风险描述 → unavailable（不是序列）；
+    - Agent 自行构造、不在用户问题中的序列 → invalid。
+    """
+    s = str(sequence or "").strip().upper()
+    if not s:
+        return "unavailable"
+    if len(s) < _MIN_SEQUENCE_LEN or any(c not in _AMINO_ACIDS for c in s):
+        return "invalid"
+    q = str(user_query or "").upper()
+    if s in q:
+        return "user_provided"
+    return "invalid"
+
+
+def blocked_sequence_message(tool: str, source: str) -> str:
+    """工具因序列来源不合法被阻止时的结构化返回（不伪造 scan 结果）。"""
+    return (
+        f"工具调用被阻止：未提供可验证的用户抗体序列（sequence_source={source}）。"
+        f"未提供抗体序列，无法进行{'序列扫描' if tool == 'scan_antibody' else '突变扫描'}。"
+        f"请提供抗体序列后再调用 {tool}。"
+    )
 
 
 @dataclass
@@ -103,8 +152,27 @@ def tool_scan_antibody(sequence: str) -> str:
     )
 
 
+def _to_risk_items(risks):
+    """把核心层返回的风险条目统一为 RiskItem 对象（兼容 dict 与对象两种返回结构）。"""
+    from models import RiskItem
+
+    items = []
+    for r in risks or []:
+        if isinstance(r, RiskItem):
+            items.append(r)
+        elif isinstance(r, dict):
+            items.append(RiskItem.from_dict(r))
+        else:
+            items.append(r)
+    return items
+
+
 def tool_mutate_scan(sequence: str, mutation: str) -> str:
-    """执行点突变并重新扫描，给出突变前后风险对比（确定性结构化文本）。"""
+    """执行点突变并重新扫描，给出突变前后风险对比（确定性结构化文本）。
+
+    注意：core.mutate_and_rescan 返回的 risks 为 dict（scan_sequence 的 to_dict 结构），
+    统一转成 RiskItem 后再取 category/motif 等属性，避免类型崩溃。
+    """
     from collections import Counter
 
     from core import analyze_sequence, mutate_and_rescan
@@ -112,9 +180,11 @@ def tool_mutate_scan(sequence: str, mutation: str) -> str:
     report, risks, summary, mutated = mutate_and_rescan(sequence, mutation, *_default_cdr())
     if "突变失败" in summary:
         return summary
-    before = dict(Counter(r.category for r in analyze_sequence(sequence, *_default_cdr()).risks))
-    after = dict(Counter(r.category for r in risks))
-    hits = "; ".join(f"[{r.category}] {r.motif}@{r.position}({r.region})" for r in risks) if risks else "无"
+    before_items = _to_risk_items(analyze_sequence(sequence, *_default_cdr()).risks)
+    after_items = _to_risk_items(risks)
+    before = dict(Counter(r.category for r in before_items))
+    after = dict(Counter(r.category for r in after_items))
+    hits = "; ".join(f"[{r.category}] {r.motif}@{r.position}({r.region})" for r in after_items) if after_items else "无"
     return (
         f"突变 {mutation} 成功 → 新序列: {mutated}\n"
         f"突变前风险类别计数: {before}\n"
