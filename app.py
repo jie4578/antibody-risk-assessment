@@ -114,26 +114,105 @@ def _error_block(title: str, err: Exception) -> str:
     return f"❌ {title}\n错误类型: {type(err).__name__}\n错误信息: {_redact_sensitive(err)}"
 
 
-def format_agent_steps(steps) -> str:
-    """把 Agent.run() 的 steps 格式化为可读文本（稳健兼容 tool / final 两类条目）。
+def _is_tool_error(result) -> bool:
+    """工具结果是否属于失败（用于日志显示"工具调用失败"）。"""
+    t = str(result or "").strip()
+    return t.startswith(("工具 ", "错误", "突变失败", "执行异常", "请提供"))
 
-    steps 中可能含：
-      {"type":"tool", "tool":..., "arguments":..., "result":..., "retried":...}
-      {"type":"final", "answer":..., "thought":...}   # 最终回答单独展示,不在日志重复
+
+def _summarize_tool_result(tool: str, result: str) -> str:
+    """从工具返回文本提取 1-3 行关键信息（简洁科研风格，不展示完整 arguments/长序列）。"""
+    t = str(result or "").strip()
+    if not t:
+        return "（无返回）"
+    if tool in ("scan_antibody", "risk_score"):
+        m = re.search(r"风险评分 ([0-9.]+)（(.+?)）", t)
+        if m:
+            lines = [f"风险评分：{m.group(1)}", f"风险等级：{m.group(2)}"]
+            if tool == "scan_antibody":
+                hits = re.search(r"命中风险基序: (.*)$", t)
+                if hits and hits.group(1).strip() != "无":
+                    lines.append(f"发现 {hits.group(1).count(';') + 1} 个风险位点")
+            return "\n".join(lines)
+        return t[:120]
+    if tool == "mutate_scan":
+        first = t.splitlines()[0] if t.splitlines() else t
+        return first[:120]
+    if tool == "batch_analysis":
+        m = re.search(r"批量分析 (\d+) 条记录", t)
+        return f"批量分析 {m.group(1)} 条记录" if m else t[:120]
+    if tool == "literature_search":
+        n = len(re.findall(r"PMID:", t))
+        return f"检索文献证据 {n} 条" if n else t[:120]
+    if tool == "rag_search":
+        return "检索知识库相关知识"
+    return t[:120]
+
+
+def format_agent_steps(steps) -> str:
+    """把 Agent.run() 的 steps 格式化为简洁的科研软件风格日志。
+
+    - final 条目跳过（最终回答单独展示）
+    - 不展示完整 arguments（避免长序列刷屏）
+    - 工具失败显示：工具调用失败：<tool> / 原因：<脱敏信息>
+    - 保留 [重试] 标记
     """
-    lines = []
+    blocks = []
     for s in steps or []:
         if not isinstance(s, dict):
             continue
         if s.get("type") == "final":
             continue  # 最终回答不进工具日志
         tool = s.get("tool", "?")
-        args = s.get("arguments") or {}
-        arg_str = ", ".join(f"{k}={str(v)[:60]}" for k, v in args.items()) if args else ""
         retried = " [重试]" if s.get("retried") else ""
-        result = _redact_sensitive(s.get("result", ""))[:200]
-        lines.append(f"[{tool}]{retried} ({arg_str})\n  -> {result}")
-    return "\n\n".join(lines) or "（未调用工具）"
+        result = _redact_sensitive(s.get("result", ""))  # 统一先脱敏，任何分支都不泄露 key
+        if _is_tool_error(result):
+            blocks.append(f"{tool}{retried}\n工具调用失败：{tool}\n原因：{result[:200]}")
+        else:
+            blocks.append(f"{tool}{retried}\n{_summarize_tool_result(tool, result)}")
+    if not blocks:
+        return "（未调用工具）"
+    return "工具调用\n\n" + "\n\n".join(blocks)
+
+
+def _clean_answer(text) -> str:
+    """展示层强制纯文本：去掉全部 Markdown 痕迹与模板语（v6）。
+
+    仅影响展示，不改变 Agent 内部 answer 数据。
+    清除：**、*、__、`、#、---、___、>、表格竖线、列表符号、链接等。
+    """
+    t = str(text or "")
+    # 1) 模板语 / 寒暄
+    for phrase in (
+        "我协调了多个专家智能体，汇总如下：",
+        "我协调了多个专家智能体",
+        "以上为多专家协同的离线演示回复",
+        "以上为基于离线规则/Mock 的演示性回复",
+        "接入真实 LLM 后可生成更连贯的结论",
+        "让我仔细检查",
+        "如果您有具体序列",
+    ):
+        t = t.replace(phrase, "")
+    t = re.sub(r"^(您好[，,。\s]*|请问有什么可以帮您[？?]?\s*)", "", t)  # 开头寒暄
+    # 2) 行级结构：标题 / 引用块 / 分隔线 / 表格分隔行
+    t = re.sub(r"(?m)^#{1,6}\s*", "", t)                        # # ## ###
+    t = re.sub(r"(?m)^\s*(?:>+\s?)+", "", t)                    # > 引用块
+    t = re.sub(r"(?m)^\s*(?:[-—–_]{3,}|[*]{3,})\s*$", "", t)    # --- ___ ***
+    t = re.sub(r"(?m)^\s*\|[:\s\-]*\|[:\s\-]*\|?\s*$", "", t)   # 表格分隔行 |---|---| / |---|
+    # 3) 行首列表符号（- / * / + / •）
+    t = re.sub(r"(?m)^\s*(?:[-*+]\s+|•\s+)", "", t)
+    # 4) 行内 Markdown
+    t = re.sub(r"\*\*([^*]+)\*\*", r"\1", t)     # **x** → x
+    t = re.sub(r"\*([^*\n]+)\*", r"\1", t)       # *x* → x
+    t = re.sub(r"__([^_\n]+)__", r"\1", t)       # __x__ → x
+    t = re.sub(r"`([^`\n]+)`", r"\1", t)         # `x` → x
+    t = re.sub(r"!\[([^\]]*)\]\([^)]*\)", r"\1", t)  # ![alt](url) → alt
+    t = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", t)   # [text](url) → text
+    t = re.sub(r"(?m)^\s*\|(.*)\|\s*$", r"\1", t)    # 表格行去首尾竖线
+    t = t.replace("|", " ")                        # 残余竖线 → 空格
+    # 5) 折叠多余空行
+    t = re.sub(r"\n{3,}", "\n\n", t)
+    return t.strip()
 
 
 def agent_ask_wrapper(question):
@@ -145,7 +224,7 @@ def agent_ask_wrapper(question):
         r = Agent().run(str(question))
         steps = r.get("steps", []) or []
         first_tool = next((s.get("tool") for s in steps if s.get("type") != "final"), "（无）")
-        return format_agent_steps(steps), r.get("answer", ""), first_tool
+        return format_agent_steps(steps), _clean_answer(r.get("answer", "")), first_tool
     except Exception as e:
         traceback.print_exc()
         err = _error_block("Agent 执行失败", e)
@@ -161,6 +240,8 @@ def agent_orchestrate_wrapper(question):
     note = ""
     try:
         res = Orchestrator(lead_backend=backend, worker_backend=backend).run(str(question))
+        # 开发调试信息保留在控制台，不进页面
+        print(f"[Agent][debug] backend={backend} agents={res.get('agents')}")
     except Exception as e:
         # 真实 LLM 失败 → 尝试离线 mock；mock 也失败 → 开发友好错误（控制台打印完整 traceback）
         traceback.print_exc()
@@ -172,15 +253,14 @@ def agent_orchestrate_wrapper(question):
             traceback.print_exc()
             err = _error_block("Agent 执行失败", e2)
             return err, err
-    tag = "真实" if backend != "mock" else "离线"
     try:
-        parts = [f"后端: {backend}({tag})", f"选择专家: {res.get('agents', [])}"]
+        # 合并所有专家步骤 → 统一简洁日志（不显示 === agent === 分隔符/参数长串）
+        all_steps = []
         for r in res.get("results", []):
-            parts.append(f"=== {r.get('agent', '?')} ===")
-            parts.append(format_agent_steps(r.get("steps")))
-        if note:
-            parts.append(note)
-        return "\n".join(parts), res.get("answer", "") + note
+            all_steps.extend(r.get("steps") or [])
+        log = format_agent_steps(all_steps)
+        answer = _clean_answer(res.get("answer", "")) + note
+        return log, answer
     except Exception as e:
         traceback.print_exc()
         err = _error_block("结果格式化失败", e)
