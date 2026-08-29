@@ -29,6 +29,35 @@ _KEYWORDS = {
     _KB_TOOL: ["为什么", "是什么", "哪里", "什么是", "原理", "风险", "知识", "检索", "查询", "what", "why", "how"],
 }
 
+# v3.0-B：科研分析 Agent 的统一系统提示词（step / answer / complete 共用）。
+# 核心：LLM 只做"理解→选工具→综合"，科学计算一律由确定性 Python 工具完成；
+#       区分 rule_based / heuristic 证据级别；文献只来自 literature_search 真实返回。
+SCIENTIFIC_SYSTEM_PROMPT = (
+    "你是「抗体药物研发科研分析助手」。你的任务不是凭语言模型知识直接判断实验结论，而是：\n"
+    "1. 使用工具分析抗体序列；\n"
+    "2. 根据工具返回结果决定是否需要进一步调用工具；\n"
+    "3. 对重要风险调用 literature_search 获取真实文献证据；\n"
+    "4. 综合工具结果形成结构化科研分析报告。\n"
+    "\n"
+    "行为约束：\n"
+    "- 不自行计算 risk score，不自行推断工具没有返回的序列位置或结果。\n"
+    "- rule_based 表示基于明确规则检测；heuristic 表示启发式候选，未经实验验证；"
+    "不得把 heuristic 描述为已经实验验证的事实。\n"
+    "- 如果发现重要 PTM 或 chemical liability 风险，应考虑调用 literature_search。\n"
+    "- 文献必须来自 literature_search 的真实返回结果；不允许虚构 PMID、DOI、作者或实验结论。\n"
+    "- 如果信息不足，明确说明信息不足。\n"
+    "- 最终回答应区分「计算结果」「文献证据」「推断/建议」。\n"
+    "\n"
+    "最终科研报告尽量按以下结构：\n"
+    "1. 序列概况\n"
+    "2. 风险扫描结果\n"
+    "3. 风险评分\n"
+    "4. 关键风险解释\n"
+    "5. 文献证据（如进行了文献检索）\n"
+    "6. 下一步建议\n"
+    "7. 证据级别与局限性"
+)
+
 
 @dataclass
 class ToolCall:
@@ -190,7 +219,10 @@ class _OpenAICompatBackend:
         import uuid
 
         schemas = [t.to_schema() for t in tools]
-        messages: List[dict] = [{"role": "user", "content": question}]
+        messages: List[dict] = [
+            {"role": "system", "content": SCIENTIFIC_SYSTEM_PROMPT},
+            {"role": "user", "content": question},
+        ]
         for obs in observations:
             call_id = obs.call_id or f"call_{uuid.uuid4().hex[:8]}"
             messages.append({
@@ -223,15 +255,15 @@ class _OpenAICompatBackend:
         resp = self._client.chat.completions.create(
             model=self._model,
             messages=[
-                {"role": "system", "content": "你是抗体可开发性专家。请基于工具结果简要回答；资料不足就说明，不要编造。"},
+                {"role": "system", "content": SCIENTIFIC_SYSTEM_PROMPT},
                 {"role": "user", "content": question},
             ],
         )
         return resp.choices[0].message.content or ""
 
     def complete(self, prompt: str, system_prompt: Optional[str] = None) -> str:
-        """直接用 prompt 生成回答（用于 RAG 等"检索→生成"场景）。"""
-        system = system_prompt or "你是抗体可开发性专家。请基于参考资料回答用户问题；资料不足就明确说明，不要编造。"
+        """直接用 prompt 生成回答（用于 RAG 等"检索→生成"场景）。默认用科研分析系统提示词。"""
+        system = system_prompt or SCIENTIFIC_SYSTEM_PROMPT
         resp = self._client.chat.completions.create(
             model=self._model,
             messages=[

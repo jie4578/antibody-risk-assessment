@@ -36,6 +36,7 @@ def test_deepseek_llm_requires_key(monkeypatch):
     import config
 
     monkeypatch.setattr(config, "_DOTENV_PATHS", [])
+    monkeypatch.setattr(config, "_loaded", False)  # 测试隔离：避免把"已加载"状态永久置 True 毒化后续测试
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
     with pytest.raises((ImportError, RuntimeError)):
         DeepSeekLLM()
