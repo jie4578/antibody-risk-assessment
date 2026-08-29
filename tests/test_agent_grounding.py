@@ -31,65 +31,65 @@ def _fake_llm():
 
 # ---------- 1-12：prompt 证据边界约束 ----------
 def test_prompt_forbids_self_computed_score():
-    assert "自行重新计算" in P
-    assert "只能引用 scan_antibody / risk_score" in P
+    assert "不得自行计算" in P
+    assert "新的风险评分" in P
 
 
 def test_prompt_forbids_second_scoring_system():
-    assert "Severity × Likelihood" in P
-    assert "1-25" in P and "0-10" in P
-    assert "第二套评分体系" in P
+    assert "新的评分体系" in P
+    assert "未自行计算" in P
 
 
 def test_prompt_requires_tool_score_priority():
-    assert "只能引用" in P and "实际返回的评分" in P
-    assert "无工具评分" in P
+    assert "scan_antibody 返回的风险位点可以直接报告" in P
+    assert "risk_score 返回的评分和等级可以直接报告" in P
+    assert "以工具实际结果为准" in P
 
 
 def test_prompt_raw_1based_position():
-    assert "原始序列 1-based position" in P
+    assert "原始输入序列的 1-based position" in P
 
 
 def test_prompt_no_imgt_kabat_guess():
-    for key in ("IMGT", "Kabat", "Chothia", "AHo"):
+    for key in ("IMGT", "Kabat", "Chothia"):
         assert key in P
+    assert "或其他编号体系" in P
 
 
 def test_prompt_no_antibody_identity_guess():
-    assert "不得仅凭 VH/VL 序列" in P
-    assert "抗体药物身份" in P
+    assert "不得根据序列猜测具体抗体身份" in P
 
 
 def test_prompt_heuristic_must_be_labeled():
-    assert "heuristic / 启发式 / 未经实验验证" in P
-    assert "不得把 heuristic 写成" in P
-    assert "已确认风险" in P  # 作为"禁止写成"的对象出现
+    assert "heuristic / 未经实验验证" in P
+    assert "不得把 heuristic 描述成" in P
 
 
 def test_prompt_literature_as_general_evidence():
-    assert "一般性文献证据" in P
-    assert "不得写成" in P and "文献证明该序列" in P
+    assert "rag_search 只能作为知识库信息" in P
+    assert "不能伪装成真实文献检索结果" in P
 
 
 def test_prompt_no_fabricated_pmid_doi():
     assert "PMID" in P and "DOI" in P
-    assert "严禁根据模型记忆补充" in P
-    assert "当前可用文献证据不足。" in P
+    assert "不得使用模型记忆自行生成" in P
+    assert "本次未检索特定文献。" in P
 
 
 def test_prompt_no_fabricated_experimental_data():
-    for key in ("不得编造实验结果", "氧化率", "降解百分比", "KD", "Tm", "半衰期", "LC-MS/MS"):
-        assert key in P
-    assert "下一步验证建议" in P
+    assert "不得编造实验数据" in P
+    assert "LC-MS/MS" in P
+    assert "不得自行设计具体实验条件" in P
 
 
-def test_prompt_distinguishes_four_information_types():
-    for key in ("工具计算结果", "文献证据", "Agent 推断", "下一步验证建议"):
+def test_prompt_distinguishes_information_sections():
+    for key in ("工具评分", "文献证据", "重点关注", "验证建议", "说明"):
         assert key in P
 
 
 def test_prompt_evidence_limitations_section():
-    assert "证据局限性与风险声明" in P
+    assert "评分和风险位点来自工具返回结果" in P
+    assert "未自行计算新的评分体系" in P
 
 
 # ---------- 13-15：注入回归（真实后端） ----------

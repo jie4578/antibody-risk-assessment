@@ -141,9 +141,12 @@ def test_orchestrator_run_aggregates():
     assert res["agents"]
     assert len(res["results"]) == len(res["agents"])
     assert res["answer"]
-    # 汇聚结果应同时包含规则扫描与知识检索
-    combined = "".join(r["answer"] for r in res["results"])
-    assert "风险" in combined or "脱酰胺" in combined
+    # v5：最终回答基于工具事实生成（不再拼接专家报告）
+    assert "风险" in res["answer"] or "脱酰胺" in res["answer"]
+    assert res["tool_facts"]
+    assert all({"tool", "result"} <= set(f.keys()) for f in res["tool_facts"])
+    for r in res["results"]:
+        assert r["answer"] == ""  # 专家不再生成报告
 
 
 # ---------- 真 ReAct 迭代循环 ----------

@@ -70,7 +70,95 @@ def test_redact_sensitive():
     assert _redact_sensitive("key=sk-abc12345xyz") == "key=sk-****"
 
 
-# ---------- agent_orchestrate_wrapper ----------
+# ---------- 简洁科研风格格式 ----------
+def test_format_steps_concise_style():
+    txt = format_agent_steps([_tool_step(
+        result="序列长度 120 aa；规则风险评分 66.3（Medium Risk）；命中风险基序: [脱酰胺化] NG@55-56(CDR2); [氧化] M@83(FW)"
+    )])
+    assert "工具调用" in txt
+    assert "scan_antibody" in txt
+    assert "风险评分：66.3" in txt
+    assert "风险等级：Medium Risk" in txt
+    assert "发现 2 个风险位点" in txt
+    assert "===" not in txt      # 无分隔符
+    assert "sequence=" not in txt  # 无完整参数
+    assert "->" not in txt       # 无箭头
+
+
+def test_format_steps_tool_failure_shows_reason():
+    txt = format_agent_steps([_tool_step(result="工具 scan_antibody 执行异常: boom")])
+    assert "工具调用失败：scan_antibody" in txt
+    assert "原因：" in txt and "boom" in txt
+
+
+# ---------- 最终回答展示清理 ----------
+def test_clean_answer_strips_markdown():
+    from app import _clean_answer
+
+    out = _clean_answer("**风险位点**\n---\n### 脱酰胺化\n正文内容")
+    assert "**" not in out and "---" not in out and "###" not in out
+    assert "风险位点" in out and "脱酰胺化" in out and "正文内容" in out
+
+
+def test_clean_answer_strips_mock_phrases():
+    from app import _clean_answer
+
+    out = _clean_answer("您好，我协调了多个专家智能体，汇总如下：\n分析结果")
+    assert "您好" not in out and "我协调了多个专家智能体" not in out
+    assert "分析结果" in out
+
+
+def test_clean_answer_keeps_plain_text():
+    from app import _clean_answer
+
+    assert _clean_answer("普通科研文本") == "普通科研文本"
+
+
+def test_clean_answer_strips_single_asterisk():
+    from app import _clean_answer
+
+    assert _clean_answer("*风险*") == "风险"
+
+
+def test_clean_answer_strips_blockquote_and_code():
+    from app import _clean_answer
+
+    out = _clean_answer("> 引用块\n`code` 内容")
+    assert ">" not in out and "`" not in out
+    assert "引用块" in out and "code" in out
+
+
+def test_clean_answer_strips_table():
+    from app import _clean_answer
+
+    out = _clean_answer("| 工具 | 结果 |\n|---|---|\n| scan | 91.0 |")
+    assert "|" not in out and "---" not in out
+    assert "工具" in out and "91.0" in out
+
+
+def test_clean_answer_strips_underline_separator():
+    from app import _clean_answer
+
+    out = _clean_answer("标题\n___\n正文")
+    assert "___" not in out and "标题" in out and "正文" in out
+
+
+def test_clean_answer_strips_list_bullets():
+    from app import _clean_answer
+
+    out = _clean_answer("- NG@55-56\n* M@83")
+    assert "- NG" not in out and "* M" not in out
+    assert "NG@55-56" in out and "M@83" in out
+
+
+def test_clean_answer_keeps_motif_dash():
+    from app import _clean_answer
+
+    # 基序中的连字符(55-56)不能被误删
+    assert "NG@55-56（CDR2）" in _clean_answer("重点关注 NG@55-56（CDR2）")
+
+
+
 def test_orchestrate_wrapper_success(monkeypatch):
     import agent as agent_mod
 

@@ -41,7 +41,8 @@ def test_step_first_message_is_system():
 
 
 def test_system_prompt_contains_required_rules():
-    for keyword in ("结构化科研分析报告", "rule_based", "heuristic", "未经实验验证", "literature_search", "不自行计算"):
+    for keyword in ("rule_based", "heuristic", "未经实验验证", "literature_search",
+                    "不得自行计算", "可追溯", "工具实际返回"):
         assert keyword in SCIENTIFIC_SYSTEM_PROMPT
 
 
