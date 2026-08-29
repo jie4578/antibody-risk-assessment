@@ -34,7 +34,7 @@ OUTPUT_COLUMNS = [
 ]
 
 # 归为 PTM（翻译后修饰）的类别；其余基序归为化学 liability
-PTM_CATEGORIES = {"N-糖基化"}
+PTM_CATEGORIES = {"N-糖基化", "O-糖基化"}
 
 CDR_REGIONS = ("CDR1", "CDR2", "CDR3", "FW")
 

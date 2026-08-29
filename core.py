@@ -25,6 +25,69 @@ RISK_MOTIFS = {
 # 标准 20 种氨基酸（统一校验白名单，单条与批量共用，禁止复制）
 VALID_AMINO_ACIDS = frozenset("ACDEFGHIKLMNPQRSTVWY")
 
+# ---------- v2.0 PTM / Glycosylation 常量 ----------
+# O-糖基化（启发式候选，未经实验验证）
+O_GLYCO_CATEGORY = "O-糖基化"
+O_GLYCO_WINDOW = 7
+O_GLYCO_MIN_ST_FRACTION = 6 / 7
+# N-糖基化上下文侧翼长度（命中位点前后 ±3 aa）
+N_GLYCO_CONTEXT_FLANK = 3
+# 证据级别
+EV_RULE_BASED = "rule_based"
+EV_HEURISTIC = "heuristic"
+
+
+def find_o_glycosylation_hotspots(
+    sequence,
+    window=O_GLYCO_WINDOW,
+    min_st_fraction=O_GLYCO_MIN_ST_FRACTION,
+):
+    """
+    启发式 O-糖基化热点检测（heuristic candidate，未经实验验证）。
+
+    规则：
+      - 滑动"完整 window aa 窗口"（默认 7 aa）
+      - 窗口内 S/T 占比 >= min_st_fraction（默认 6/7）→ 视为 S/T 富集区
+      - 富集区内的 S/T 残基标记为候选热点
+      - SP / TP 抑制：S/T 后紧跟 P 的位点被排除（GalNAc-T 抑制）
+      - 同一位点落在多个窗口时去重
+
+    返回:
+        list[dict]，每个元素:
+          position      1-based 位置
+          residue       'S' 或 'T'
+          st_fraction   该位点所在窗口的 S/T 占比
+          window_start  窗口起点(1-based)
+          window_end    窗口终点(1-based，含)
+          segment       窗口内 7 aa 片段
+    """
+    seq = str(sequence or "").upper()
+    n = len(seq)
+    if n < window:
+        return []
+    found = {}
+    for start in range(0, n - window + 1):
+        segment = seq[start:start + window]
+        st_count = sum(1 for c in segment if c in ("S", "T"))
+        if st_count / window < min_st_fraction:
+            continue
+        for offset, aa in enumerate(segment):
+            pos = start + offset
+            if aa not in ("S", "T"):
+                continue
+            # SP / TP 抑制：S/T 后紧跟 P
+            if pos + 1 < n and seq[pos + 1] == "P":
+                continue
+            found[pos] = {
+                "position": pos + 1,
+                "residue": aa,
+                "st_fraction": round(st_count / window, 3),
+                "window_start": start + 1,
+                "window_end": start + window,
+                "segment": segment,
+            }
+    return [found[k] for k in sorted(found)]
+
 
 def normalize_sequence(sequence):
     """规范化序列：None → 空串；否则 strip 首尾空白并转大写。"""
@@ -89,11 +152,10 @@ def analyze_sequence(sequence, cdr1_s, cdr1_e, cdr2_s, cdr2_e, cdr3_s, cdr3_e):
     cdr_map = annotate_cdr(sequence, cdr1_s, cdr1_e, cdr2_s, cdr2_e, cdr3_s, cdr3_e)
 
     report_lines = []
-    report_lines.append("=" * 60)
     report_lines.append("抗体序列化学稳定性风险基序扫描报告")
     report_lines.append(f"序列长度: {len(sequence)} aa")
     report_lines.append(f"CDR定义: CDR1={cdr1_s}-{cdr1_e}, CDR2={cdr2_s}-{cdr2_e}, CDR3={cdr3_s}-{cdr3_e}")
-    report_lines.append("=" * 60)
+    report_lines.append("")
 
     risk_items = []
     stats = {"CDR1": [], "CDR2": [], "CDR3": [], "FW": []}
@@ -125,21 +187,39 @@ def analyze_sequence(sequence, cdr1_s, cdr1_e, cdr2_s, cdr2_e, cdr3_s, cdr3_e):
                         stats[region].append(f"{motif}({pos+1}-{pos+2})")
                     base = pos + 1
 
-    # N-糖基化扫描
+    # N-糖基化扫描（规则：N-X-S/T，X != P；context = 命中位点前后 ±3 aa）
     glyco_pattern = r"N[^P][ST]"
     for match in re.finditer(glyco_pattern, sequence):
         start = match.start()
         end = match.end()
         region = cdr_map.get(start, "?")
+        context = sequence[max(0, start - N_GLYCO_CONTEXT_FLANK): min(len(sequence), end + N_GLYCO_CONTEXT_FLANK)]
         report_lines.append(f"[N-糖基化] {match.group()} -> 位置{start+1}-{end} | 区域:{region} | 潜在的N-连接糖基化位点")
-        risk_items.append(RiskItem(category="N-糖基化", motif=match.group(), position=f"{start+1}-{end}", region=region, description="潜在的N-连接糖基化位点"))
+        risk_items.append(RiskItem(
+            category="N-糖基化", motif=match.group(), position=f"{start+1}-{end}", region=region,
+            description="潜在的N-连接糖基化位点", context=context, evidence_level=EV_RULE_BASED,
+        ))
         if region in stats:
             stats[region].append(f"{match.group()}({start+1}-{end})")
 
+    # O-糖基化热点扫描（heuristic candidate，未经实验验证）
+    for hot in find_o_glycosylation_hotspots(sequence):
+        pos = hot["position"]
+        region = cdr_map.get(pos - 1, "?")
+        context = sequence[max(0, pos - 1 - N_GLYCO_CONTEXT_FLANK): min(len(sequence), pos + N_GLYCO_CONTEXT_FLANK)]
+        report_lines.append(
+            f"[O-糖基化] {hot['residue']} -> 位置{pos} | 区域:{region} | S/T富集区域候选(heuristic,未经实验验证)"
+        )
+        risk_items.append(RiskItem(
+            category=O_GLYCO_CATEGORY, motif=hot["residue"], position=pos, region=region,
+            description="S/T 富集区域候选 O-糖基化位点（heuristic，未经实验验证）",
+            context=context, evidence_level=EV_HEURISTIC,
+        ))
+        if region in stats:
+            stats[region].append(f"{hot['residue']}({pos})")
+
     if not risk_items:
         report_lines.append("未发现已知的常见风险基序")
-
-    report_lines.append("=" * 60)
 
     cdr_risk_count = len(stats.get("CDR1",[])) + len(stats.get("CDR2",[])) + len(stats.get("CDR3",[]))
     summary = f"CDR区高危基序总数: {cdr_risk_count} (CDR1:{len(stats.get('CDR1',[]))}, CDR2:{len(stats.get('CDR2',[]))}, CDR3:{len(stats.get('CDR3',[]))})"

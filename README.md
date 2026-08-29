@@ -24,11 +24,26 @@
 - 单条抗体序列分析
 - CDR 区域标注（Kabat 手动边界，可在界面中调整）
 - Chemical Liability motif 扫描（脱酰胺化 NG/NS/NN、异构化 DG/DS/DA、氧化 M）
-- PTM motif 扫描（N-糖基化 N-x-S/T）
+- PTM motif 扫描（N-糖基化 N-x-S/T；**O-糖基化 S/T 富集热点 heuristic**）
 - 虚拟突变 + 重扫（如 `N55Q`）
 - 批量分析
 - 三种输入格式：CSV / FASTA / XLSX
 - Rule-based computational risk score
+
+### v2.0 · PTM / Glycosylation 增强
+
+- **N-糖基化**（`rule_based`）：N-x-S/T（x ≠ P）规则扫描，命中位点附 **±3 aa 上下文（context）**。
+- **O-糖基化**（`heuristic`，候选，未经实验验证）：S/T 富集热点启发式——
+  - 滑动 **7 aa 窗口**，窗口内 **S/T ≥ 6/7** 视为富集区；
+  - 富集区内的 S/T 残基标记为候选热点；
+  - **SP / TP 抑制**：S/T 后紧跟脯氨酸(P)的位点被排除（GalNAc-T 抑制）；
+  - 明确标注为 **heuristic candidate，不是实验验证结果**，不替代 NetOGlyc 等实验/算法预测。
+- **RiskItem 新增字段**：`context`（±3 aa 上下文）、`evidence_level`（`rule_based` / `heuristic`）；
+  旧 `to_dict()` **保持 5 键兼容不变**，新字段通过 `to_detail_dict()` 输出。
+- **评分**：O-糖基化基础罚分 2.0（N-糖基化 9.0 不变），与 N-糖基化同属 **PTM** 类别桶；递减惩罚逻辑不变。
+- **批量分析**：O-糖基化计入 `PTM_risk_count`。
+
+> 诚实声明：O-糖基化为启发式候选（S/T 富集 + SP/TP 抑制），**未经实验验证**，仅供候选排序参考，不代表真实 O-糖基化发生。
 
 **本项目不是实验验证平台**，不是：
 

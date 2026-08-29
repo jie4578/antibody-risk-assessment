@@ -18,6 +18,7 @@ BASE_PENALTIES: Dict[str, float] = {
     "DG": 6.0, "DS": 5.0, "DA": 3.0,   # 异构化
     "M": 4.0,                          # 氧化
     "N-糖基化": 9.0,                   # PTM（按 category 匹配）
+    "O-糖基化": 2.0,                   # PTM（heuristic candidate，基础罚分较低）
 }
 
 # CDR 区域权重：heuristic weighting，未经实验验证
@@ -38,6 +39,8 @@ CDR_REGIONS = ("CDR1", "CDR2", "CDR3")
 DIMINISHING_FACTOR: float = 0.5
 
 PTM_CATEGORY = "N-糖基化"
+# v2.0：PTM 类别集合（N-糖基化 = rule_based；O-糖基化 = heuristic）
+PTM_CATEGORIES = frozenset({"N-糖基化", "O-糖基化"})
 
 CATEGORY_BUCKETS = ("PTM", "Chemical Liability")
 REGION_BUCKETS = ("CDR", "Framework")
@@ -70,9 +73,9 @@ class RiskScore:
 
 
 def _base_penalty(risk_item) -> float:
-    """取基准罚分：N-糖基化按 category 匹配，其余按 motif 匹配；未知 → 0。"""
-    if risk_item.category == PTM_CATEGORY:
-        return BASE_PENALTIES.get(PTM_CATEGORY, 0.0)
+    """取基准罚分：PTM 类别（N/O-糖基化）按 category 匹配，其余按 motif 匹配；未知 → 0。"""
+    if risk_item.category in PTM_CATEGORIES:
+        return BASE_PENALTIES.get(risk_item.category, 0.0)
     return BASE_PENALTIES.get(risk_item.motif, 0.0)
 
 
@@ -167,7 +170,7 @@ def compute_risk_score(
         penalty = effective_base * weight
         total += penalty
 
-        if r.category == PTM_CATEGORY:
+        if r.category in PTM_CATEGORIES:
             category_breakdown["PTM"] += penalty
         else:
             category_breakdown["Chemical Liability"] += penalty
