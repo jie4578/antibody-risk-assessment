@@ -36,3 +36,10 @@ literature_cache/
 
 # 其他工具的工作日志/记忆（如 CodeBuddy .workbuddy），不进库
 .workbuddy/
+
+# v9 真实验收证据(不提交)
+_v*.json
+*_retest.json
+
+# 本地辅助脚本
+run_utf8.bat
