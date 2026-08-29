@@ -1,5 +1,7 @@
 # app.py (v4.0 - 新增 ML / RAG / Agent 三个 Tab,接入四层 AIDD 能力)
 import os
+import re
+import traceback
 
 import gradio as gr
 import pandas as pd
@@ -100,14 +102,54 @@ def rag_query_wrapper(question):
     return res.context, res.prompt, answer, sources_txt
 
 
+def _redact_sensitive(text) -> str:
+    """脱敏 API key / token（避免错误信息泄露 sk-... 等敏感串）。"""
+    t = str(text)
+    t = re.sub(r"sk-[A-Za-z0-9]{4,}", "sk-****", t)
+    return t
+
+
+def _error_block(title: str, err: Exception) -> str:
+    """把异常转成开发友好的单块文本（类型 + 已脱敏信息），供 Gradio 输出。"""
+    return f"❌ {title}\n错误类型: {type(err).__name__}\n错误信息: {_redact_sensitive(err)}"
+
+
+def format_agent_steps(steps) -> str:
+    """把 Agent.run() 的 steps 格式化为可读文本（稳健兼容 tool / final 两类条目）。
+
+    steps 中可能含：
+      {"type":"tool", "tool":..., "arguments":..., "result":..., "retried":...}
+      {"type":"final", "answer":..., "thought":...}   # 最终回答单独展示,不在日志重复
+    """
+    lines = []
+    for s in steps or []:
+        if not isinstance(s, dict):
+            continue
+        if s.get("type") == "final":
+            continue  # 最终回答不进工具日志
+        tool = s.get("tool", "?")
+        args = s.get("arguments") or {}
+        arg_str = ", ".join(f"{k}={str(v)[:60]}" for k, v in args.items()) if args else ""
+        retried = " [重试]" if s.get("retried") else ""
+        result = _redact_sensitive(s.get("result", ""))[:200]
+        lines.append(f"[{tool}]{retried} ({arg_str})\n  -> {result}")
+    return "\n\n".join(lines) or "（未调用工具）"
+
+
 def agent_ask_wrapper(question):
     if not question or not str(question).strip():
         return "请先输入问题。", "（无回答）", ""
     from agent import Agent
 
-    r = Agent().run(str(question))
-    log = "\n".join(f"[{s['tool']}] {s['result'][:220]}" for s in r["steps"]) or "（未调用工具）"
-    return log, r["answer"], r["steps"][0]["tool"] if r["steps"] else "（无）"
+    try:
+        r = Agent().run(str(question))
+        steps = r.get("steps", []) or []
+        first_tool = next((s.get("tool") for s in steps if s.get("type") != "final"), "（无）")
+        return format_agent_steps(steps), r.get("answer", ""), first_tool
+    except Exception as e:
+        traceback.print_exc()
+        err = _error_block("Agent 执行失败", e)
+        return err, err, "（无）"
 
 
 def agent_orchestrate_wrapper(question):
@@ -120,18 +162,29 @@ def agent_orchestrate_wrapper(question):
     try:
         res = Orchestrator(lead_backend=backend, worker_backend=backend).run(str(question))
     except Exception as e:
-        # 真实 LLM 失败（key 无效/余额不足/网络）→ 回退离线 mock，并给出提示
-        backend, note = "mock", f"\n[提示] 真实 LLM 调用失败，已回退离线 mock: {e}"
-        res = Orchestrator().run(str(question))
+        # 真实 LLM 失败 → 尝试离线 mock；mock 也失败 → 开发友好错误（控制台打印完整 traceback）
+        traceback.print_exc()
+        backend = "mock"
+        note = f"\n[提示] 真实 LLM 调用失败，已回退离线 mock: {_redact_sensitive(e)}"
+        try:
+            res = Orchestrator().run(str(question))
+        except Exception as e2:
+            traceback.print_exc()
+            err = _error_block("Agent 执行失败", e2)
+            return err, err
     tag = "真实" if backend != "mock" else "离线"
-    parts = [f"后端: {backend}({tag})", f"选择专家: {res['agents']}"]
-    for r in res["results"]:
-        parts.append(f"=== {r['agent']} ===")
-        for s in r["steps"]:
-            parts.append(f"[{s['tool']}] {s['result'][:200]}")
-    if note:
-        parts.append(note)
-    return "\n".join(parts), res["answer"] + note
+    try:
+        parts = [f"后端: {backend}({tag})", f"选择专家: {res.get('agents', [])}"]
+        for r in res.get("results", []):
+            parts.append(f"=== {r.get('agent', '?')} ===")
+            parts.append(format_agent_steps(r.get("steps")))
+        if note:
+            parts.append(note)
+        return "\n".join(parts), res.get("answer", "") + note
+    except Exception as e:
+        traceback.print_exc()
+        err = _error_block("结果格式化失败", e)
+        return err, err
 
 
 with gr.Blocks(title="抗体序列风险评估工具") as demo:
