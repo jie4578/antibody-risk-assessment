@@ -54,6 +54,48 @@
 
 所有输出仅用于候选序列的**相对优先级排序**，不构成任何实验或临床结论。
 
+### v3.0 · 科研分析 Agent / 事实边界（Fact Boundary）
+
+在规则引擎 / ML / RAG 之上，`agent/` 提供「能自主调用工具并输出结构化科研报告的 Agent」，核心是**防止 AI 越权推断**：
+
+```
+用户输入
+  ↓
+Orchestrator（任务分解）
+  ↓
+Specialist Agent（工具选择）
+  ↓
+真实工具（scan_antibody / risk_score / mutate_scan / rag_search / literature_search / predict_risk / batch_analysis）
+  ↓
+Tool Facts（结构化工具事实，带 sequence_source 来源标记）
+  ↓
+Final Agent（LLM 综合；只允许基于工具事实）
+  ↓
+Post-hoc Claim Validation（位点 / PMID / DOI / 伪造序列声明，违规自动重写一次）
+  ↓
+Plain Text Cleaning（强制纯文本，去除 Markdown）
+  ↓
+最终科研辅助结果
+```
+
+**事实边界四层机制**（确定性优先于 Prompt）：
+
+1. **`SCIENTIFIC_SYSTEM_PROMPT`**：统一科研行为规范——不自行计算评分、不新增工具未返回的 PTM、heuristic 必须标注「heuristic / 未经实验验证」、文献只来自 literature_search、用户给定位点不得冒充工具事实。
+2. **`fact_source` 注记**（确定性）：文献按主题相关性标注 direct / general / irrelevant；用户问题中出现的位点若工具未返回，标注「用户给定 / 未经工具验证」。
+3. **`enforce_fact_boundary` + `enforce_claim_boundaries`**（post-hoc，确定性）：数字 / 风险等级 / 位点 / PMID / DOI 必须来自工具实际返回；irrelevant 文献禁止引用；无合法用户序列时禁止输出序列长度 / 评分 / 风险位点。
+4. **序列输入边界（v9.3）**：`scan_antibody` / `mutate_scan` 的 `sequence` 必须能在用户问题中逐字找到，否则工具被阻止（`sequence_source=unavailable/invalid`），杜绝 Agent 自行构造序列。
+
+**证据级别区分**：
+
+| 来源 | 含义 | 可否作为事实 |
+| --- | --- | --- |
+| 工具事实 | scan_antibody / risk_score / mutate_scan 实际返回 | ✅ 可直接引用 |
+| 知识库事实 | rag_search 返回 | ⚠️ 一般机制，非本序列验证 |
+| 文献证据 | literature_search / Europe PMC 实际返回 | ⚠️ 仅一般性证据，须 relevance != irrelevant |
+| 模型推断 | LLM 综合推断 | ❌ 必须标注 heuristic / 未经实验验证 |
+
+> 本项目是**科研辅助工具**：所有序列分析 / 评分 / 文献解读均不替代 LC-MS/MS、强制降解、结合活性、聚集等实验验证。工具识别（rule_based）与启发式（heuristic）结果均不等于实验事实。
+
 ## 2. Architecture
 
 ```
@@ -505,3 +547,22 @@ python -m pytest -q
 - 理性设计突变，去除高风险基序，指导湿实验
 - 生物信息学入门项目，展示"领域知识 + Python 实战"能力
 - 作品：四层 AIDD 流水线（规则 → ML → RAG → Agent）
+
+## 13. 测试与验证（Tests & Validation）
+
+### Automated Tests
+
+- **367 passed, 4 deselected（live）, 0 failed**
+- 覆盖：规则引擎 / 评分 / 批量 / mutation / RAG / literature / Agent（Tool Calling、ReAct、prompt 注入、事实边界、post-hoc 校验、序列输入边界、展示层纯文本清洗）
+- 运行：`python -m pytest`（live 标记的真实网络测试默认跳过，需手动 `pytest -m live`）
+
+### Real Harness Validation
+
+- **30/30 PASS**（真实 DeepSeek + 真实 Europe PMC + 真实工具链）
+- 全部场景 `mock_fallback=False`；无虚构 PMID / DOI；无 irrelevant 文献引用；无用户位点冒充工具事实；无虚构序列；Markdown 清洗正常
+- 验证了：正常抗体分析、用户给定位点边界、PTM 边界、文献相关性、5 个真实突变（N55Q / D102E / S63A / M107L / M83L）、无序列输入保护、身份边界、综合审查
+
+### CI
+
+- `.github/workflows/ci.yml`：Python 3.10 / 3.11 / 3.12 矩阵 + 可选 torch/langchain 任务
+- 无需真实 API key（使用 CI 占位 key，测试内 mock 客户端）；不依赖本地 Windows 路径
