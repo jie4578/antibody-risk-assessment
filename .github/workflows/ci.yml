@@ -9,6 +9,9 @@ jobs:
   test:
     name: pytest (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    env:
+      # 无真实 key 时 DeepSeekLLM 构造需要非空 key(测试内 mock 客户端,不联网)
+      DEEPSEEK_API_KEY: sk-ci-dummy
     strategy:
       fail-fast: false
       matrix:
@@ -28,6 +31,8 @@ jobs:
   test-optional:
     name: "pytest (optional deps: torch + langchain)"
     runs-on: ubuntu-latest
+    env:
+      DEEPSEEK_API_KEY: sk-ci-dummy
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
