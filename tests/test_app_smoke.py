@@ -27,6 +27,20 @@ def test_app_import_builds_demo():
     assert hasattr(app, "RISK_HEADERS")
 
 
+def test_gradio_share_defaults_false(monkeypatch):
+    import app
+
+    monkeypatch.delenv("GRADIO_SHARE", raising=False)
+    assert app.gradio_share_enabled() is False
+
+
+def test_gradio_share_can_be_enabled_explicitly(monkeypatch):
+    import app
+
+    monkeypatch.setenv("GRADIO_SHARE", "true")
+    assert app.gradio_share_enabled() is True
+
+
 def test_batch_wrapper_fasta_end_to_end(tmp_path):
     import app
 

@@ -4,7 +4,12 @@
 import pytest
 
 from agent import Tool, ToolRegistry
-from agent.agent import _has_user_sequence, validate_no_fake_sequence_claims
+from agent.agent import (
+    _has_user_sequence,
+    enforce_claim_boundaries,
+    validate_no_fake_sequence_claims,
+    validate_sequence_length_claims,
+)
 from agent.llm import Observation, ToolCall
 from agent.tools import (
     extract_user_sequence,
@@ -97,7 +102,67 @@ def test_posthoc_blocks_fake_sequence_claim():
     assert validate_no_fake_sequence_claims("Asn-Gly 柔性最高，最易脱酰胺。", has_user_sequence=False) == []
 
 
-# ---------- 9. 现有 VH 回归(不动算法) ----------
+# ---------- 9.4 sequence length consistency ----------
+def _length_observation(*lengths):
+    return [Observation("scan_antibody", f"序列长度 {length} aa；规则风险评分 66.3（Medium Risk）") for length in lengths]
+
+
+def test_sequence_length_wrong_120_triggers_mismatch():
+    bad = validate_sequence_length_claims("化学稳定性风险分析\n序列长度为 118 aa", _length_observation(120))
+    assert bad and "118" in bad[0] and "120" in bad[0]
+
+
+def test_sequence_length_correct_120_and_english_forms_pass():
+    obs = _length_observation(120)
+    assert validate_sequence_length_claims("序列长度为 120 aa", obs) == []
+    assert validate_sequence_length_claims("sequence length: 120 aa", obs) == []
+
+
+def test_sequence_length_multiple_sequences_uses_tool_lengths_only():
+    obs = _length_observation(120, 80)
+    assert validate_sequence_length_claims("序列1长度为 120 aa；序列2长度为 80 aa", obs) == []
+    assert validate_sequence_length_claims("序列1长度为 118 aa；序列2长度为 80 aa", obs)
+
+
+def test_sequence_length_user_claim_without_tool_is_not_authoritative():
+    assert validate_sequence_length_claims("用户说 sequence length: 120 aa", [])
+
+
+class _LengthRewriteStub:
+    def __init__(self, rewritten):
+        self.rewritten = rewritten
+        self.calls = 0
+        self.questions = []
+
+    def answer(self, question, observations):
+        self.calls += 1
+        self.questions.append(question)
+        return self.rewritten
+
+
+def test_sequence_length_wrong_answer_rewrites_with_authoritative_length():
+    llm = _LengthRewriteStub("序列长度为 120 aa")
+    out = enforce_claim_boundaries(
+        llm, "请分析序列", _length_observation(120), "序列长度为 118 aa"
+    )
+    assert llm.calls == 1
+    assert "sequence_length" in llm.questions[0]
+    assert "120 aa" in llm.questions[0]
+    assert "120 aa" in out
+    assert "118 aa" not in out
+
+
+def test_sequence_length_still_wrong_after_rewrite_is_removed():
+    llm = _LengthRewriteStub("序列长度为 118 aa")
+    out = enforce_claim_boundaries(
+        llm, "请分析序列", _length_observation(120), "序列长度为 118 aa"
+    )
+    assert llm.calls == 1
+    assert "118 aa" not in out
+    assert "校验失败" in out
+
+
+# ---------- 10. 现有 VH 回归(不动算法) ----------
 def test_existing_vh_regression():
     out = tool_scan_antibody(VH)
     assert "风险评分 66.3" in out
@@ -105,7 +170,7 @@ def test_existing_vh_regression():
     assert out.count("@") >= 6  # 6 个风险位点
 
 
-# ---------- 10. mutate N55Q 回归 ----------
+# ---------- 11. mutate N55Q 回归 ----------
 def test_mutate_n55q_regression():
     out = tool_mutate_scan(VH, "N55Q")
     assert "突变 N55Q 成功" in out
