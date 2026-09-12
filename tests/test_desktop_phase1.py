@@ -130,6 +130,42 @@ def test_settings_connection_button_disables_and_recovers(monkeypatch):
     page.deleteLater(); app.processEvents()
 
 
+def test_provider_switch_loads_only_provider_scoped_key(monkeypatch):
+    pytest.importorskip("PySide6")
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication
+    from desktop.widgets.settings_page import SettingsPage
+    app = QApplication.instance() or QApplication([])
+    page = SettingsPage(); page.store = CredentialStore(FakeKeyring()); page.store.save_secure("deepseek", "deep-key"); page.store.save_secure("openai", "openai-key")
+    page.provider.setCurrentText("mock")
+    page.provider.setCurrentText("openai"); assert page.api_key.text() == "openai-key"
+    page.provider.setCurrentText("openai-compatible"); assert page.api_key.text() == ""
+    page.provider.setCurrentText("deepseek"); assert page.api_key.text() == "deep-key"
+    page.deleteLater(); app.processEvents()
+
+
+def test_openai_compatible_allows_empty_key_with_custom_endpoint(monkeypatch):
+    class FakeClient:
+        def __init__(self, **kwargs): self.kwargs = kwargs
+    monkeypatch.setitem(sys.modules, "openai", types.SimpleNamespace(OpenAI=FakeClient))
+    backend = build_backend(RuntimeLLMConfig("openai-compatible", "", "https://custom/v1", "custom-model", 8))
+    assert backend._client.kwargs["base_url"] == "https://custom/v1"
+    assert backend._model == "custom-model"
+
+
+def test_ai_assistant_does_not_block_optional_compatible_key(monkeypatch):
+    pytest.importorskip("PySide6")
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication
+    from desktop.widgets.ai_assistant import AIAssistantPage
+    app = QApplication.instance() or QApplication([])
+    page = AIAssistantPage(lambda: RuntimeLLMConfig("openai-compatible", "", "https://custom/v1", "model", 5))
+    monkeypatch.setattr(page.pool, "start", lambda worker: None)
+    page.question.setPlainText("hello"); page.ask()
+    assert page.status.text() == "处理中…"
+    page.deleteLater(); app.processEvents()
+
+
 def test_single_analysis_page_uses_existing_core_and_scoring(monkeypatch):
     pytest.importorskip("PySide6")
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")

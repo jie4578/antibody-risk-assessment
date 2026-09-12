@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from PySide6.QtCore import QObject, QRunnable, Signal, Slot
 
+from desktop.errors import normalize_error
+
 
 class WorkerSignals(QObject):
     finished = Signal(object)
@@ -34,23 +36,12 @@ def sanitize_error(message: str, secrets=None) -> str:
 
 
 def classify_connection_error(message: str) -> str:
-    text = (message or "").lower()
-    if "api key" in text or "authentication" in text or "unauthorized" in text or "401" in text:
-        return "authentication"
-    if "timeout" in text or "timed out" in text:
-        return "timeout"
-    if "model" in text and ("not found" in text or "unavailable" in text):
-        return "model unavailable"
-    if "url" in text or "connection" in text or "network" in text or "name or service" in text:
-        return "network / invalid base URL"
-    if "unknown provider" in text:
-        return "unknown provider"
-    return "unknown error"
+    return normalize_error(message).code
 
 
 def test_connection(config):
     from desktop.settings import build_backend
-    if config.provider in {"deepseek", "openai", "openai-compatible"} and not config.api_key:
+    if config.provider in {"deepseek", "openai"} and not config.api_key:
         raise RuntimeError("配置错误：请提供 API key")
     backend = build_backend(config)
     if hasattr(backend, "complete"):

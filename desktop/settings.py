@@ -16,27 +16,16 @@ class RuntimeLLMConfig:
     timeout: float = 30.0
 
 
-DEFAULTS = {"deepseek": ("https://api.deepseek.com", "deepseek-chat"),
-            "openai": ("https://api.openai.com/v1", "gpt-4o-mini"),
-            "openai-compatible": ("", ""), "ollama": ("http://localhost:11434/v1", "qwen2.5:7b"),
-            "mock": ("", "")}
+from desktop.providers import PROVIDERS, resolve_model
+
+DEFAULTS = {spec.id: (spec.default_base_url or "", spec.models[0].model_id if spec.models else "")
+            for spec in PROVIDERS}
 
 
 def config_from_environment() -> RuntimeLLMConfig:
-    """Resolve the existing environment configuration without mutating os.environ."""
-    provider = os.environ.get("ANTIBODY_AI_PROVIDER", "").strip().lower()
-    if not provider:
-        provider = "deepseek" if os.environ.get("DEEPSEEK_API_KEY") else (
-            "openai" if os.environ.get("OPENAI_API_KEY") else "mock")
-    base_url, model = DEFAULTS.get(provider, ("", ""))
-    return RuntimeLLMConfig(
-        provider=provider,
-        api_key=os.environ.get("DEEPSEEK_API_KEY" if provider == "deepseek" else "OPENAI_API_KEY", "")
-        if provider in {"deepseek", "openai"} else "",
-        base_url=os.environ.get("ANTIBODY_AI_BASE_URL", base_url),
-        model=os.environ.get("ANTIBODY_AI_MODEL", model),
-        timeout=float(os.environ.get("ANTIBODY_AI_TIMEOUT", "30")),
-    )
+    """Resolve existing environment settings without mutating os.environ."""
+    from desktop.providers import resolve_config
+    return resolve_config(RuntimeLLMConfig(provider=""))
 
 
 def settings_path() -> Path:
@@ -63,7 +52,7 @@ def load_settings(path: Path | None = None) -> RuntimeLLMConfig:
         try: timeout = float(timeout)
         except (TypeError, ValueError): timeout = 30.0
         if not 1 <= timeout <= 300: timeout = 30.0
-        return RuntimeLLMConfig(provider, "", base_url, model, timeout)
+        return RuntimeLLMConfig(provider, "", base_url, resolve_model(provider, model), timeout)
     except (OSError, ValueError, TypeError, OverflowError):
         return RuntimeLLMConfig()
 
@@ -79,15 +68,19 @@ def save_settings(config: RuntimeLLMConfig, path: Path | None = None) -> Path:
 
 def build_backend(config: RuntimeLLMConfig):
     from agent.llm import get_llm
+    from desktop.providers import resolve_config
 
+    config = resolve_config(config)
     provider = (config.provider or "mock").lower()
-    if provider == "openai-compatible":
-        provider = "openai"
     kwargs = {"model": config.model, "timeout": config.timeout}
     if config.api_key:
         kwargs["api_key"] = config.api_key
     if config.base_url:
         kwargs["base_url"] = config.base_url
+    if provider == "openai-compatible":
+        if not config.api_key:
+            kwargs["api_key"] = "not-needed"
+        provider = "openai"
     if provider == "mock":
         return get_llm("mock")
     if provider == "ollama":

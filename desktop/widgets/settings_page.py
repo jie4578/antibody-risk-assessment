@@ -4,6 +4,8 @@ from PySide6.QtCore import Signal, QThreadPool
 from PySide6.QtWidgets import QCheckBox, QComboBox, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QDoubleSpinBox, QVBoxLayout, QWidget
 
 from desktop.credentials import CredentialError, CredentialStore
+from desktop.errors import normalize_error
+from desktop.providers import model_display_name, provider_spec, resolve_model
 from desktop.settings import DEFAULTS, RuntimeLLMConfig, config_from_environment, load_settings, save_settings
 from desktop.workers import Worker, classify_connection_error, test_connection
 
@@ -11,11 +13,11 @@ from desktop.workers import Worker, classify_connection_error, test_connection
 class SettingsPage(QWidget):
     config_applied = Signal(object)
     def __init__(self, parent=None):
-        super().__init__(parent); self.store = CredentialStore(); self.pool = QThreadPool.globalInstance(); self._config = load_settings()
-        self.provider = QComboBox(); self.provider.addItems(["mock", "deepseek", "openai", "openai-compatible", "ollama"])
-        self.base_url = QLineEdit(); self.model = QLineEdit(); self.api_key = QLineEdit(); self.api_key.setEchoMode(QLineEdit.Password); self.timeout = QDoubleSpinBox(); self.timeout.setRange(1, 300); self.timeout.setValue(30)
+        super().__init__(parent); self.store = CredentialStore(); self.pool = QThreadPool.globalInstance(); self._config = load_settings(); self._provider_state = {}
+        self.provider = QComboBox(); self.provider.addItems(["deepseek", "openai", "openai-compatible", "ollama", "mock"])
+        self.base_url = QLineEdit(); self.model = QComboBox(); self.model.setEditable(True); self.api_key = QLineEdit(); self.api_key.setEchoMode(QLineEdit.Password); self.timeout = QDoubleSpinBox(); self.timeout.setRange(1, 300); self.timeout.setValue(30)
         self.secure = QCheckBox("Save API key securely with OS keyring"); self.status = QLabel(); self.show_key = QPushButton("Show"); self.show_key.setCheckable(True); self.show_key.toggled.connect(lambda on: self.api_key.setEchoMode(QLineEdit.Normal if on else QLineEdit.Password))
-        self.provider.currentTextChanged.connect(self._defaults); self._load()
+        self.provider.currentTextChanged.connect(self._switch_provider); self._load()
         form = QFormLayout(); form.addRow("Provider", self.provider); form.addRow("Base URL", self.base_url)
         keyrow = QHBoxLayout(); keyrow.addWidget(self.api_key); keyrow.addWidget(self.show_key); form.addRow("API key", keyrow)
         form.addRow("Model", self.model); form.addRow("Timeout (s)", self.timeout)
@@ -23,21 +25,28 @@ class SettingsPage(QWidget):
         buttons = QHBoxLayout(); buttons.addWidget(self.test_button); buttons.addWidget(save); buttons.addWidget(clear); buttons.addStretch()
         layout = QVBoxLayout(self); layout.addLayout(form); layout.addWidget(self.secure); layout.addLayout(buttons); layout.addWidget(self.status); layout.addStretch()
 
-    def _defaults(self, provider):
-        base, model = DEFAULTS.get(provider, ("", ""));
-        if not self.base_url.text(): self.base_url.setText(base)
-        if not self.model.text(): self.model.setText(model)
+    def _load_provider(self, provider, base_url="", model=""):
+        spec = provider_spec(provider); self.base_url.setText(base_url or (spec.default_base_url or "")); self.model.clear()
+        self.model.addItems([m.display_name for m in spec.models]); self.model.setCurrentText(model_display_name(provider, model) if model else (spec.models[0].display_name if spec.models else ""))
+        self.base_url.setEnabled(provider != "mock"); self.model.setEnabled(provider != "mock"); self.api_key.setEnabled(provider not in {"ollama", "mock"})
 
     def _load(self):
-        self.provider.setCurrentText(self._config.provider); self.base_url.setText(self._config.base_url); self.model.setText(self._config.model); self.timeout.setValue(self._config.timeout)
-        try: self.api_key.setText(self.store.get(self._config.provider))
-        except CredentialError: pass
-        if self._config.provider == "mock" and not load_settings().base_url:
-            env_config = config_from_environment()
-            if env_config.provider != "mock": self.provider.setCurrentText(env_config.provider); self.base_url.setText(env_config.base_url); self.model.setText(env_config.model); self.api_key.setText(env_config.api_key)
-        self._defaults(self._config.provider)
+        provider = self._config.provider if self._config.provider in {"deepseek", "openai", "openai-compatible", "ollama", "mock"} else "mock"
+        self.provider.setCurrentText(provider); self._current_provider = provider; self._load_provider(provider, self._config.base_url, self._config.model); self.timeout.setValue(self._config.timeout)
+        try: self.api_key.setText(self.store.get(provider))
+        except CredentialError: self.api_key.clear()
 
-    def config(self): return RuntimeLLMConfig(self.provider.currentText(), self.api_key.text().strip(), self.base_url.text().strip(), self.model.text().strip(), self.timeout.value())
+    def _switch_provider(self, provider):
+        previous = getattr(self, "_current_provider", None)
+        if previous:
+            self._provider_state[previous] = (self.base_url.text(), self.model.currentText())
+        self._current_provider = provider; base, model = self._provider_state.get(provider, ("", "")); self._load_provider(provider, base, model); self.api_key.clear()
+        try: self.api_key.setText(self.store.get(provider))
+        except CredentialError: self.api_key.clear()
+
+    def config(self):
+        provider = self.provider.currentText()
+        return RuntimeLLMConfig(provider, self.api_key.text().strip(), self.base_url.text().strip(), resolve_model(provider, self.model.currentText()), self.timeout.value())
     def save(self):
         config = self.config()
         try:
@@ -53,7 +62,7 @@ class SettingsPage(QWidget):
     def _test_success(self, message):
         self.test_button.setEnabled(True); self.status.setText(message); self._active_worker = None
     def _test_error(self, message):
-        self.test_button.setEnabled(True); self.status.setText(f"连接失败（{classify_connection_error(message)}）：{message}"); self._active_worker = None
+        self.test_button.setEnabled(True); normalized = normalize_error(message); self.status.setText(f"{normalized.message} {message}"); self._active_worker = None
     def clear_credentials(self):
         try: self.store.delete(self.provider.currentText()); self.api_key.clear(); self.status.setText("已清除当前 provider 凭据")
         except CredentialError as exc: self.status.setText(str(exc))
