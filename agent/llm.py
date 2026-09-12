@@ -383,7 +383,8 @@ def _guess_mutation(question: str) -> str:
 class _OpenAICompatBackend:
     """可选：基于 OpenAI 兼容接口（OpenAI / DeepSeek / Ollama 本地 等）的真实函数调用后端。"""
 
-    def __init__(self, model: str, api_key_env: str, base_url: str, *, api_key: Optional[str] = None):
+    def __init__(self, model: str, api_key_env: str, base_url: str, *, api_key: Optional[str] = None,
+                 timeout: Optional[float] = None, extra_body: Optional[Dict[str, Any]] = None):
         try:
             from openai import OpenAI
         except Exception as e:  # pragma: no cover
@@ -397,12 +398,21 @@ class _OpenAICompatBackend:
                 f"缺少 {api_key_env}。请在仓库根目录创建 .env（参考 .env.example），"
                 f"写入 {api_key_env}=<your-key> 后重试。"
             )
-        self._client = OpenAI(api_key=api_key, base_url=base_url)
+        client_kwargs = {"api_key": api_key, "base_url": base_url}
+        if timeout is not None:
+            client_kwargs["timeout"] = timeout
+        self._client = OpenAI(**client_kwargs)
         self._model = model
+        self._extra_body = extra_body or {}
+
+    def _create_completion(self, **kwargs):
+        if self._extra_body:
+            kwargs["extra_body"] = self._extra_body
+        return self._client.chat.completions.create(**kwargs)
 
     def plan(self, question: str, tools: List["Tool"]) -> List[ToolCall]:
         schemas = [t.to_schema() for t in tools]
-        resp = self._client.chat.completions.create(
+        resp = self._create_completion(
             model=self._model,
             messages=[{"role": "user", "content": question}],
             tools=schemas,
@@ -441,7 +451,7 @@ class _OpenAICompatBackend:
             })
             messages.append({"role": "tool", "tool_call_id": call_id, "content": obs.result[:2000]})
 
-        resp = self._client.chat.completions.create(
+        resp = self._create_completion(
             model=self._model,
             messages=messages,
             tools=schemas,
@@ -467,7 +477,7 @@ class _OpenAICompatBackend:
             )
         else:
             user_content = question
-        resp = self._client.chat.completions.create(
+        resp = self._create_completion(
             model=self._model,
             messages=[
                 {"role": "system", "content": SCIENTIFIC_SYSTEM_PROMPT},
@@ -479,7 +489,7 @@ class _OpenAICompatBackend:
     def complete(self, prompt: str, system_prompt: Optional[str] = None) -> str:
         """直接用 prompt 生成回答（用于 RAG 等"检索→生成"场景）。默认用科研分析系统提示词。"""
         system = system_prompt or SCIENTIFIC_SYSTEM_PROMPT
-        resp = self._client.chat.completions.create(
+        resp = self._create_completion(
             model=self._model,
             messages=[
                 {"role": "system", "content": system},
@@ -490,13 +500,16 @@ class _OpenAICompatBackend:
 
 
 class OpenAILLM(_OpenAICompatBackend):
-    def __init__(self, model: str = "gpt-4o-mini"):
-        super().__init__(model, "OPENAI_API_KEY", "https://api.openai.com/v1")
+    def __init__(self, model: str = "gpt-4o-mini", *, api_key: Optional[str] = None,
+                 base_url: str = "https://api.openai.com/v1", timeout: Optional[float] = None):
+        super().__init__(model, "OPENAI_API_KEY", base_url, api_key=api_key, timeout=timeout)
 
 
 class DeepSeekLLM(_OpenAICompatBackend):
-    def __init__(self, model: str = "deepseek-chat"):
-        super().__init__(model, "DEEPSEEK_API_KEY", "https://api.deepseek.com")
+    def __init__(self, model: str = "deepseek-chat", *, api_key: Optional[str] = None,
+                 base_url: str = "https://api.deepseek.com", timeout: Optional[float] = None):
+        super().__init__(model, "DEEPSEEK_API_KEY", base_url, api_key=api_key, timeout=timeout,
+                         extra_body={"thinking": {"type": "disabled"}})
 
 
 class LocalOllamaLLM(_OpenAICompatBackend):
@@ -507,13 +520,13 @@ class LocalOllamaLLM(_OpenAICompatBackend):
         OLLAMA_BASE_URL:  Ollama OpenAI 兼容端点，默认 http://localhost:11434/v1
     """
 
-    def __init__(self, model: str = "", base_url: str = ""):
+    def __init__(self, model: str = "", base_url: str = "", *, timeout: Optional[float] = None):
         from config import get_env
 
         model = model or get_env("OLLAMA_MODEL", "qwen2.5:7b")
         base_url = base_url or get_env("OLLAMA_BASE_URL", "http://localhost:11434/v1")
         # Ollama 不需要真实 key，传任意非空字符串即可
-        super().__init__(model, "OLLAMA_API_KEY", base_url, api_key="ollama")
+        super().__init__(model, "OLLAMA_API_KEY", base_url, api_key="ollama", timeout=timeout)
 
 
 def get_llm(name: str = "mock", **kwargs):

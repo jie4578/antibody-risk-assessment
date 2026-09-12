@@ -1,0 +1,43 @@
+from __future__ import annotations
+
+from PySide6.QtWidgets import QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QPlainTextEdit
+
+from core import analyze_sequence
+from scoring import compute_risk_score
+
+
+class SingleAnalysisPage(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.antibody_id = QLineEdit()
+        self.sequence = QPlainTextEdit()
+        self.sequence.setPlaceholderText("粘贴 VH 或 VL 氨基酸序列")
+        self.length = QLabel("-")
+        self.score = QLabel("-")
+        self.level = QLabel("-")
+        self.message = QLabel()
+        analyze = QPushButton("Analyze")
+        clear = QPushButton("Clear")
+        analyze.clicked.connect(self.analyze)
+        clear.clicked.connect(self.clear)
+        form = QFormLayout(); form.addRow("Antibody ID", self.antibody_id); form.addRow("Sequence", self.sequence)
+        buttons = QHBoxLayout(); buttons.addWidget(analyze); buttons.addWidget(clear); buttons.addStretch()
+        summary = QFormLayout(); summary.addRow("Sequence length", self.length); summary.addRow("Risk Score", self.score); summary.addRow("Risk Level", self.level)
+        self.table = QTableWidget(0, 4); self.table.setHorizontalHeaderLabels(["Position", "Motif", "Category", "Region"])
+        layout = QVBoxLayout(self); layout.addLayout(form); layout.addLayout(buttons); layout.addWidget(self.message); layout.addLayout(summary); layout.addWidget(self.table)
+
+    def analyze(self):
+        result = analyze_sequence(self.sequence.toPlainText(), 31, 35, 50, 65, 99, 110)
+        self.table.setRowCount(0); self.length.setText(str(result.sequence_length) if not result.errors else "-")
+        if result.errors:
+            self.score.setText("-"); self.level.setText("-"); self.message.setText("错误：" + "; ".join(result.errors)); return
+        risk = compute_risk_score([(self.antibody_id.text() or "sequence", result)])
+        self.score.setText(f"{risk.overall_score:.2f}"); self.level.setText(risk.risk_level); self.message.setText("")
+        for item in result.risks:
+            row = self.table.rowCount(); self.table.insertRow(row)
+            for col, value in enumerate((item.position, item.motif, item.category, item.region)):
+                self.table.setItem(row, col, QTableWidgetItem(str(value)))
+
+    def clear(self):
+        self.antibody_id.clear(); self.sequence.clear(); self.length.setText("-"); self.score.setText("-"); self.level.setText("-"); self.message.clear(); self.table.setRowCount(0)
+

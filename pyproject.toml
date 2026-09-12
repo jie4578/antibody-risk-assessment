@@ -33,8 +33,10 @@ vec = ["faiss-cpu>=1.7", "chromadb>=0.4"]
 viz = ["matplotlib>=3.5"]
 # LLM / Agent（可选；LLM 提供 OpenAI / DeepSeek 等可选后端，无 key 时可离线兜底）
 agent = ["langchain>=0.1", "langchain-openai>=0.1"]
+# Desktop Research Workbench（可选，不改变默认 Web/CLI 安装）
+desktop = ["PySide6>=6.5", "keyring>=24", "openai>=1.0"]
 # 全部
-all = ["lightgbm>=3.3", "faiss-cpu>=1.7", "chromadb>=0.4", "matplotlib>=3.5", "langchain>=0.1", "langchain-openai>=0.1"]
+all = ["lightgbm>=3.3", "faiss-cpu>=1.7", "chromadb>=0.4", "matplotlib>=3.5", "langchain>=0.1", "langchain-openai>=0.1", "PySide6>=6.5", "keyring>=24", "openai>=1.0"]
 # 开发/测试
 dev = ["pytest>=7.0", "pytest-cov", "matplotlib>=3.5"]
 
@@ -46,7 +48,7 @@ py-modules = ["core", "models", "scoring", "batch_analysis", "input_parser", "ap
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["ml*", "rag*", "agent*", "literature*"]
+include = ["ml*", "rag*", "agent*", "literature*", "desktop*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

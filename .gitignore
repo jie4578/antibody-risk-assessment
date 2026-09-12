@@ -14,6 +14,7 @@ venv/
 
 # 临时文件
 *.tmp
+*.egg-info/
 
 # ML 产物（模型 / 图片 / 缓存）
 ml/artifacts/
