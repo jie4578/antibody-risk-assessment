@@ -4,6 +4,7 @@ from PySide6.QtCore import QThreadPool
 from PySide6.QtWidgets import QComboBox, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QPlainTextEdit, QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
 
 from desktop.mutation_adapter import MutationComparison, compare_mutation
+from desktop.literature_context import mutation_risk_context
 from desktop.workers import Worker, sanitize_error
 
 
@@ -11,9 +12,9 @@ class MutationPage(QWidget):
     RISK_COLUMNS = ["Chain", "Position", "Motif", "Category", "Region"]
     CANDIDATE_COLUMNS = ["Mutation", "Chain", "Original Score", "Mutant Score", "ΔScore", "Removed Sites", "Added Sites"]
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, open_literature=None):
         super().__init__(parent)
-        self.pool = QThreadPool.globalInstance(); self._worker = None; self._comparison = None; self._candidates = []
+        self.pool = QThreadPool.globalInstance(); self._worker = None; self._comparison = None; self._candidates = []; self._open_literature = open_literature
         self.antibody_id = QLineEdit(); self.chain = QComboBox(); self.chain.addItems(["VH", "VL", "Unspecified"])
         self.sequence = QPlainTextEdit(); self.sequence.setPlaceholderText("Paste one VH or VL sequence")
         self.mutation = QLineEdit(); self.mutation.setPlaceholderText("N55Q")
@@ -25,10 +26,12 @@ class MutationPage(QWidget):
         self.mutant_summary = QLabel("Mutation: - | Length: - | Calculated Score: - | Risk Level: - | Total Sites: - | CDR Sites: -")
         self.comparison = QLabel("Calculated Score: - → - (Δ -) | Total Sites: - → - (Δ -) | CDR Sites: - → - (Δ -)")
         self.removed_table = self._risk_table(); self.added_table = self._risk_table(); self.unchanged_table = self._risk_table()
+        self.find_removed_button = QPushButton("Find Evidence for Removed Risk"); self.find_added_button = QPushButton("Find Evidence for Added Risk"); self.find_removed_button.setEnabled(False); self.find_added_button.setEnabled(False)
+        self.removed_table.itemSelectionChanged.connect(lambda: self._risk_table_selected(self.removed_table, self.find_removed_button)); self.added_table.itemSelectionChanged.connect(lambda: self._risk_table_selected(self.added_table, self.find_added_button)); self.find_removed_button.clicked.connect(lambda: self.find_literature(self.removed_table, "removed")); self.find_added_button.clicked.connect(lambda: self.find_literature(self.added_table, "added"))
         self.candidates = QTableWidget(0, len(self.CANDIDATE_COLUMNS)); self.candidates.setHorizontalHeaderLabels(self.CANDIDATE_COLUMNS)
         form = QFormLayout(); form.addRow("Antibody ID", self.antibody_id); form.addRow("Chain", self.chain); form.addRow("Sequence", self.sequence); form.addRow("Mutation", self.mutation)
         buttons = QHBoxLayout(); buttons.addWidget(self.simulate_button); buttons.addWidget(self.clear_button); buttons.addWidget(self.add_candidate_button)
-        layout = QVBoxLayout(self); layout.addLayout(form); layout.addLayout(buttons); layout.addWidget(self.message); layout.addWidget(QLabel("Original")); layout.addWidget(self.original_summary); layout.addWidget(QLabel("Mutant")); layout.addWidget(self.mutant_summary); layout.addWidget(QLabel("Comparison")); layout.addWidget(self.comparison); layout.addWidget(self.warning); layout.addWidget(QLabel("Removed Risks")); layout.addWidget(self.removed_table); layout.addWidget(QLabel("Added Risks")); layout.addWidget(self.added_table); layout.addWidget(QLabel("Unchanged Risks")); layout.addWidget(self.unchanged_table); layout.addWidget(QLabel("Candidates")); layout.addWidget(self.candidates)
+        layout = QVBoxLayout(self); layout.addLayout(form); layout.addLayout(buttons); layout.addWidget(self.message); layout.addWidget(QLabel("Original")); layout.addWidget(self.original_summary); layout.addWidget(QLabel("Mutant")); layout.addWidget(self.mutant_summary); layout.addWidget(QLabel("Comparison")); layout.addWidget(self.comparison); layout.addWidget(self.warning); layout.addWidget(QLabel("Removed Risks")); layout.addWidget(self.removed_table); layout.addWidget(self.find_removed_button); layout.addWidget(QLabel("Added Risks")); layout.addWidget(self.added_table); layout.addWidget(self.find_added_button); layout.addWidget(QLabel("Unchanged Risks")); layout.addWidget(self.unchanged_table); layout.addWidget(QLabel("Candidates")); layout.addWidget(self.candidates)
         self._set_result_controls(False)
 
     def _risk_table(self):
@@ -52,6 +55,7 @@ class MutationPage(QWidget):
         self.mutant_summary.setText("Mutation: - | Length: - | Calculated Score: - | Risk Level: - | Total Sites: - | CDR Sites: -")
         self.comparison.setText("Calculated Score: - → - (Δ -) | Total Sites: - → - (Δ -) | CDR Sites: - → - (Δ -)")
         self.message.clear(); self._set_result_controls(False)
+        self.find_removed_button.setEnabled(False); self.find_added_button.setEnabled(False)
         for table in (self.removed_table, self.added_table, self.unchanged_table): table.setRowCount(0)
 
     def simulate(self):
@@ -79,6 +83,16 @@ class MutationPage(QWidget):
         for risk in risks:
             row = table.rowCount(); table.insertRow(row)
             for col, value in enumerate((risk.chain, risk.position, risk.motif, risk.category, risk.region)): table.setItem(row, col, QTableWidgetItem(str(value)))
+            table.item(row, 0).setData(32, risk)
+
+    def _risk_table_selected(self, table, button):
+        button.setEnabled(bool(self._open_literature and table.currentRow() >= 0))
+
+    def find_literature(self, table, change_type):
+        item = table.item(table.currentRow(), 0) if table.currentRow() >= 0 else None
+        risk = item.data(32) if item else None
+        if risk and self._open_literature and self._comparison:
+            self._open_literature(mutation_risk_context(self._comparison.mutation, risk, change_type, risk.chain))
 
     def add_candidate(self):
         if not self._comparison: return

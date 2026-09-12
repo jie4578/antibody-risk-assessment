@@ -204,8 +204,8 @@ def test_main_window_headless_navigation():
     app = QApplication.instance() or QApplication([])
     window = MainWindow()
     assert window.nav.count() == window.stack.count() == 6
-    labels = [window.stack.widget(i).text() if hasattr(window.stack.widget(i), "text") else "" for i in range(6)]
-    assert "Coming in v10 Phase 2" in " ".join(labels)
+    from desktop.widgets.literature import LiteraturePage
+    assert isinstance(window.stack.widget(3), LiteraturePage)
     for row in (0, 4, 5): window.nav.setCurrentRow(row); assert window.stack.currentIndex() == row
     window.deleteLater(); app.processEvents()
 

@@ -8,13 +8,14 @@ from desktop.widgets.batch_analysis import BatchAnalysisPage
 from desktop.widgets.settings_page import SettingsPage
 from desktop.widgets.single_analysis import SingleAnalysisPage
 from desktop.widgets.mutation import MutationPage
+from desktop.widgets.literature import LiteraturePage
 
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__(); self.setWindowTitle("Antibody AI Research Assistant — Desktop Workbench"); self.resize(1100, 750); self._config = load_settings()
-        self.nav = QListWidget(); self.nav.addItems(["Single Analysis", "Batch Analysis", "Mutation", "Literature", "AI Assistant", "Settings"]); self.stack = QStackedWidget(); self.single = SingleAnalysisPage(open_mutation=self._open_mutation); self.mutation = MutationPage(); self.stack.addWidget(self.single); self.stack.addWidget(BatchAnalysisPage(open_single=self._open_single, open_mutation=self._open_mutation)); self.stack.addWidget(self.mutation)
-        self.stack.addWidget(QLabel("Literature\nComing in v10 Phase 2"))
+        self.nav = QListWidget(); self.nav.addItems(["Single Analysis", "Batch Analysis", "Mutation", "Literature", "AI Assistant", "Settings"]); self.stack = QStackedWidget(); self.single = SingleAnalysisPage(open_mutation=self._open_mutation, open_literature=self._open_literature); self.mutation = MutationPage(open_literature=self._open_literature); self.stack.addWidget(self.single); self.stack.addWidget(BatchAnalysisPage(open_single=self._open_single, open_mutation=self._open_mutation)); self.stack.addWidget(self.mutation)
+        self.literature = LiteraturePage(); self.literature.set_open_ai(self._open_ai_evidence); self.stack.addWidget(self.literature)
         self.settings = SettingsPage(); self._config = self.settings.config(); self.ai = AIAssistantPage(lambda: self._config); self.stack.addWidget(self.ai); self.stack.addWidget(self.settings); self.settings.config_applied.connect(self._set_config); self.nav.currentRowChanged.connect(self.stack.setCurrentIndex); self.nav.setCurrentRow(0)
         root = QWidget(); layout = QHBoxLayout(root); layout.addWidget(self.nav, 1); layout.addWidget(self.stack, 4); self.setCentralWidget(root)
     def _set_config(self, config: RuntimeLLMConfig): self._config = config
@@ -23,3 +24,7 @@ class MainWindow(QMainWindow):
         self.nav.setCurrentRow(0)
     def _open_mutation(self, antibody_id, sequence, chain="Unspecified"):
         self.mutation.load_sequence(antibody_id, sequence, chain); self.nav.setCurrentRow(2)
+    def _open_literature(self, context):
+        self.literature.load_context(context); self.nav.setCurrentRow(3)
+    def _open_ai_evidence(self, context):
+        self.ai.load_evidence_context(context); self.nav.setCurrentRow(4)
