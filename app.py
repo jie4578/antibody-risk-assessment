@@ -23,6 +23,11 @@ _ML_BUNDLE = None  # (model, encoder)
 _RAG_PIPE = None
 
 
+def gradio_share_enabled() -> bool:
+    """默认仅本地启动；仅在显式设置 GRADIO_SHARE=true 时创建分享链接。"""
+    return os.environ.get("GRADIO_SHARE", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _ensure_ml_model():
     """若 ML 模型尚未训练,则现场用合成数据快速训练一个并缓存。"""
     global _ML_BUNDLE
@@ -390,4 +395,4 @@ with gr.Blocks(title="抗体序列风险评估工具") as demo:
     gr.Markdown("💡 本工具为概念演示，CDR 边界需根据具体抗体序列手动调整。批量分析逐条复用单条扫描逻辑，单条失败不影响整批。")
 
 if __name__ == "__main__":
-    demo.launch(theme=gr.themes.Soft(), share=True)
+    demo.launch(theme=gr.themes.Soft(), share=gradio_share_enabled())
