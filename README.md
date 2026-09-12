@@ -6,7 +6,7 @@
 
 一个面向 **AIDD（AI 药物研发）** 的复合型抗体可开发性分析项目，将三条技术线整合在一个可运行仓库里：
 
-1. **规则引擎**（`core/`，既有）：扫描脱酰胺、异构化、氧化、N-糖基化等风险基序，标注 CDR / FW 区域，支持虚拟突变模拟、批量分析（CSV / FASTA / XLSX）与 Rule-based Computational Risk Score。
+1. **规则引擎**（`core.py`，既有）：扫描脱酰胺、异构化、氧化、N-糖基化等风险基序，标注 CDR / FW 区域，支持虚拟突变模拟、批量分析（CSV / FASTA / XLSX）与 Rule-based Computational Risk Score。
 2. **机器学习属性预测**（`ml/`，新增）：把抗体可变区序列编码为数值特征（长度 + AAindex 理化性质 + k-mer 哈希），训练**风险等级分类**与**风险分数回归**模型，含交叉验证、AUC / R²、特征重要性、可视化，覆盖"序列→特征→模型→验证"的完整 ML 流程。
 3. **检索增强生成 RAG**（`rag/`，新增）：内置抗体可开发性 / PTM 知识库，文档分块 → Embedding → 检索（向量 / BM25 / 混合 RRF）→ 上下文构建 → prompt 组装。
 4. **LLM 智能体**（`agent/`，新增）：工具调用(scan / mutate / score / predict / rag)、Memory、ReAct 智能体循环、多智能体编排（任务分解 + 专家协同），默认用可离线的 MockLLM，接入 key 可启用真实 LLM。
@@ -84,6 +84,8 @@ Plain Text Cleaning（强制纯文本，去除 Markdown）
 2. **`fact_source` 注记**（确定性）：文献按主题相关性标注 direct / general / irrelevant；用户问题中出现的位点若工具未返回，标注「用户给定 / 未经工具验证」。
 3. **`enforce_fact_boundary` + `enforce_claim_boundaries`**（post-hoc，确定性）：数字 / 风险等级 / 位点 / PMID / DOI 必须来自工具实际返回；irrelevant 文献禁止引用；无合法用户序列时禁止输出序列长度 / 评分 / 风险位点。
 4. **序列输入边界（v9.3）**：`scan_antibody` / `mutate_scan` 的 `sequence` 必须能在用户问题中逐字找到，否则工具被阻止（`sequence_source=unavailable/invalid`），杜绝 Agent 自行构造序列。
+
+**v9.4**：新增 deterministic sequence length consistency validation，用于校验 Final Agent 输出中的序列长度声明是否与工具事实一致。
 
 **证据级别区分**：
 
@@ -189,7 +191,7 @@ pip install ".[dev]"    # pytest 等测试工具
 python app.py
 ```
 
-（`app.py` 默认以 `demo.launch(theme=gr.themes.Soft(), share=True)` 启动，会生成一个可分享的临时链接，也可直接访问本地地址。）
+（`app.py` 默认以 `demo.launch(theme=gr.themes.Soft(), share=False)` 启动；仅显式设置 `GRADIO_SHARE=true` 时才开启公开临时分享链接，也可直接访问本地地址。）
 
 `app.py` 现含 **6 个 Tab**：🔍 序列扫描 / 🧪 虚拟突变 / 📊 批量分析（原有）+ 🔮 **ML 风险预测** / 📚 **RAG 知识问答** / 🤖 **智能体 Agent**（新增，分别对接 `ml/`、`rag/`、`agent/` 三层能力）。
 
@@ -538,7 +540,7 @@ print(result["answer"])
 python -m pytest -q
 ```
 
-所有测试应全部通过（当前 **177** 个：既有 122 + `ml/` 21 + `rag/` 17 + `agent/` 17，全部通过、无跳过；可选模块 torch / langchain 已实测）。新增测试时请保持全绿。
+当前非 live 测试基线为 **375 passed, 4 deselected, 0 failed**；标记为 `live` 的真实网络测试默认不在普通 `pytest` 中运行，需使用 `python -m pytest -m live` 手动执行。可选模块 torch / langchain 已实测。新增测试时请保持全绿。
 
 ## 12. 应用场景
 
@@ -552,7 +554,7 @@ python -m pytest -q
 
 ### Automated Tests
 
-- **367 passed, 4 deselected（live）, 0 failed**
+- **375 passed, 4 deselected（live）, 0 failed**
 - 覆盖：规则引擎 / 评分 / 批量 / mutation / RAG / literature / Agent（Tool Calling、ReAct、prompt 注入、事实边界、post-hoc 校验、序列输入边界、展示层纯文本清洗）
 - 运行：`python -m pytest`（live 标记的真实网络测试默认跳过，需手动 `pytest -m live`）
 
