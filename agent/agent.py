@@ -76,6 +76,13 @@ _NEGATION_WORDS = (
 # 风险数据行前缀（"脱酰胺化：…" 等，表示该行把位点列为风险）
 _RISK_PREFIXES = ("脱酰胺化", "异构化", "氧化", "N-糖基化", "O-糖基化", "糖基化", "修饰")
 
+# 明确的长度声明；用户问题中的长度不是权威事实，只有工具观察可作为依据。
+_SEQUENCE_LENGTH_RE = re.compile(
+    r"(?:序列(?:\s*\d+)?长度|sequence(?:\s*\d+)?\s+length)\s*"
+    r"(?:为|is)?\s*[:：]?\s*(\d+)\s*aa\b",
+    re.IGNORECASE,
+)
+
 
 def _positions(text: str) -> set:
     """提取文本中的位点起始位置（NG@55-56 → 55；M107 → 107）。"""
@@ -196,6 +203,56 @@ def validate_no_fake_sequence_claims(answer: str, has_user_sequence: bool) -> Li
     return bad
 
 
+def _authoritative_sequence_lengths(observations: List[Observation]) -> set:
+    """从序列相关工具事实提取权威长度；不读取用户问题或 LLM 回答。"""
+    lengths = set()
+    for obs in observations or []:
+        if getattr(obs, "tool", None) not in SEQUENCE_TOOLS + ("risk_score",):
+            continue
+        for value in _SEQUENCE_LENGTH_RE.findall(str(getattr(obs, "result", "") or "")):
+            lengths.add(int(value))
+    return lengths
+
+
+def validate_sequence_length_claims(answer: str, observations: List[Observation]) -> List[str]:
+    """确定性校验最终回答中的序列长度声明。"""
+    declared = [int(value) for value in _SEQUENCE_LENGTH_RE.findall(answer or "")]
+    if not declared:
+        return []
+    authoritative = _authoritative_sequence_lengths(observations)
+    if not authoritative:
+        return ["序列长度声明没有对应的工具事实"]
+    invalid = sorted(set(value for value in declared if value not in authoritative))
+    if not invalid:
+        return []
+    return [
+        f"序列长度 {value} aa 与工具事实不一致（权威长度: "
+        f"{', '.join(str(item) for item in sorted(authoritative))} aa）"
+        for value in invalid
+    ]
+
+
+def _remove_invalid_sequence_length_claims(answer: str, observations: List[Observation]) -> str:
+    """rewrite 仍失败时移除错误长度声明，避免展示未经验证的数字。"""
+    authoritative = _authoritative_sequence_lengths(observations)
+    lines = []
+    for line in (answer or "").splitlines():
+        match = _SEQUENCE_LENGTH_RE.search(line)
+        if not match:
+            lines.append(line)
+            continue
+        if authoritative and int(match.group(1)) in authoritative:
+            lines.append(line)
+            continue
+        remainder = _SEQUENCE_LENGTH_RE.sub("", line).strip(" ;；,，")
+        if remainder:
+            lines.append(remainder)
+    cleaned = "\n".join(lines).strip()
+    if cleaned:
+        return cleaned
+    return "序列长度校验失败：最终回答未能保留与工具事实一致的长度声明。"
+
+
 def enforce_claim_boundaries(
     llm, question: str, observations: List[Observation], answer: str,
     rewrite_facts: Optional[List[Observation]] = None,
@@ -204,6 +261,7 @@ def enforce_claim_boundaries(
     bad = validate_position_claims(answer, question, observations)
     bad += validate_literature_citations(answer, question, observations)
     bad += validate_no_fake_sequence_claims(answer, _has_user_sequence(question, observations))
+    bad += validate_sequence_length_claims(answer, observations)
     if bad:
         reminder = (
             "你的回答存在事实边界问题:(" + "; ".join(bad[:6]) + ")。"
@@ -211,9 +269,13 @@ def enforce_claim_boundaries(
             "用户给定位点必须标注「用户给定/未经工具验证」;"
             "PMID/DOI 只能来自 literature_search 实际返回，irrelevant 文献不得引用;"
             "本轮没有合法的用户抗体序列时，禁止输出任何基于序列扫描产生的序列长度、风险位点或工具评分，"
-            "请明确说明缺少序列。请基于工具返回结果重写最终回答。"
+            "序列长度只能使用工具事实中的 sequence_length；本轮权威 sequence_length 为: "
+            f"{', '.join(str(item) for item in sorted(_authoritative_sequence_lengths(observations))) or '无'} aa。"
+            "如本轮没有合法序列，请明确说明缺少序列；请基于工具返回结果重写最终回答。"
         )
         answer = llm.answer(question + "\n\n" + reminder, rewrite_facts if rewrite_facts is not None else observations)
+        if validate_sequence_length_claims(answer, observations):
+            answer = _remove_invalid_sequence_length_claims(answer, observations)
     return answer
 
 
