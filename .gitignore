@@ -5,6 +5,7 @@ __pycache__/
 
 # Gradio
 .gradio/
+.gradio/certificate.pem
 
 # 环境变量与虚拟环境
 .env
