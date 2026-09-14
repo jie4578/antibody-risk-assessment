@@ -1,0 +1,79 @@
+{
+  "files": [
+    {
+      "dataset": "aintibody_2026",
+      "article_title": "A blinded, prospective benchmark of in silico antibody discovery anchored to experimental affinity and developability",
+      "doi": "10.1038/s41587-026-03238-6",
+      "publisher_or_repository": "Nature Biotechnology / Springer Nature",
+      "source_filename": "41587_2026_3238_MOESM3_ESM.xlsx",
+      "supplementary_dataset_number": "Supplementary Tables 1\u20135",
+      "retrieval_date": "2026-09-14",
+      "sha256": "0d304d9f4dbbb8ef6355da86c2d3b4434e68278b3b0f213eb21340b56249c96e",
+      "file_size_bytes": 35525,
+      "file_format": "xlsx",
+      "data_availability_note": "Publisher-hosted supplementary workbook; license terms were not explicitly stated on the article download page.",
+      "local_raw_path": "validation/data/raw/aintibody_2026/41587_2026_3238_MOESM3_ESM.xlsx",
+      "source_url": "https://media.springernature.com/original/springer-static/esm/art%3A10.1038%2Fs41587-026-03238-6/MediaObjects/41587_2026_3238_MOESM3_ESM.xlsx"
+    },
+    {
+      "dataset": "aintibody_2026",
+      "article_title": "A blinded, prospective benchmark of in silico antibody discovery anchored to experimental affinity and developability",
+      "doi": "10.1038/s41587-026-03238-6",
+      "publisher_or_repository": "Nature Biotechnology / Springer Nature",
+      "source_filename": "41587_2026_3238_MOESM4_ESM.xlsx",
+      "supplementary_dataset_number": "Supplementary Data 1\u20133",
+      "retrieval_date": "2026-09-14",
+      "sha256": "ebab6cc496a636ab3cadaabd25d89e1dcbf69fadca533fc829c50bfeec500c20",
+      "file_size_bytes": 12633679,
+      "file_format": "xlsx",
+      "data_availability_note": "Publisher-hosted supplementary workbook; license terms were not explicitly stated on the article download page.",
+      "local_raw_path": "validation/data/raw/aintibody_2026/41587_2026_3238_MOESM4_ESM.xlsx",
+      "source_url": "https://media.springernature.com/original/springer-static/esm/art%3A10.1038%2Fs41587-026-03238-6/MediaObjects/41587_2026_3238_MOESM4_ESM.xlsx"
+    },
+    {
+      "dataset": "jain_2017",
+      "article_title": "Biophysical properties of the clinical-stage antibody landscape",
+      "doi": "10.1073/pnas.1616408114",
+      "publisher_or_repository": "PNAS / PMC",
+      "source_filename": "pnas.1616408114.sd01.xlsx",
+      "supplementary_dataset_number": "S1",
+      "retrieval_date": "2026-09-14",
+      "sha256": "7ae53f9151c4be89b75cc43a7cc1de885aeb6e0a88206e140e396dea7741338c",
+      "file_size_bytes": 16292,
+      "file_format": "xlsx",
+      "data_availability_note": "Manually supplied from the official PNAS Supporting Information; exact resolved download URL was not recorded.",
+      "local_raw_path": "validation/data/raw/jain_2017/pnas.1616408114.sd01.xlsx",
+      "source_url": "https://doi.org/10.1073/pnas.1616408114"
+    },
+    {
+      "dataset": "jain_2017",
+      "article_title": "Biophysical properties of the clinical-stage antibody landscape",
+      "doi": "10.1073/pnas.1616408114",
+      "publisher_or_repository": "PNAS / PMC",
+      "source_filename": "pnas.1616408114.sd02.xlsx",
+      "supplementary_dataset_number": "S2",
+      "retrieval_date": "2026-09-14",
+      "sha256": "aa0b4734ebf4cb5674564ee0659aa95792602259c8493a4cdf1e92ba0a5c2c6f",
+      "file_size_bytes": 26709,
+      "file_format": "xlsx",
+      "data_availability_note": "Manually supplied from the official PNAS Supporting Information; exact resolved download URL was not recorded.",
+      "local_raw_path": "validation/data/raw/jain_2017/pnas.1616408114.sd02.xlsx",
+      "source_url": "https://doi.org/10.1073/pnas.1616408114"
+    },
+    {
+      "dataset": "jain_2017",
+      "article_title": "Biophysical properties of the clinical-stage antibody landscape",
+      "doi": "10.1073/pnas.1616408114",
+      "publisher_or_repository": "PNAS / PMC",
+      "source_filename": "pnas.1616408114.sd03.xlsx",
+      "supplementary_dataset_number": "S3",
+      "retrieval_date": "2026-09-14",
+      "sha256": "8538513ca1ffc1408372aebb4eb79a2c6699f5352674fa98135cde82ad483a78",
+      "file_size_bytes": 31008,
+      "file_format": "xlsx",
+      "data_availability_note": "Manually supplied from the official PNAS Supporting Information; exact resolved download URL was not recorded.",
+      "local_raw_path": "validation/data/raw/jain_2017/pnas.1616408114.sd03.xlsx",
+      "source_url": "https://doi.org/10.1073/pnas.1616408114"
+    }
+  ]
+}
