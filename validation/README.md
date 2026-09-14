@@ -25,3 +25,17 @@ The AIntibody parser targets official Nature Biotechnology Supplementary Data
 1–3 (MOESM4) and keeps the source workbook's five sheets/columns available for
 traceability. It does not run benchmark correlations, classification, ML
 training, or score tuning.
+
+## Phase 4B frozen rule features
+
+Run `python -m validation.run_feature_extraction` after the Phase 4A processed
+tables are available. The extractor analyzes VH and VL independently through
+the production `core.analyze_sequence()` and `scoring.compute_risk_score()` APIs.
+It writes ignored CSV outputs under `data/features/` and prediction-side audit
+reports under `reports/data_audit/`.
+
+`calculated_score` is the native production score, where a higher value means
+fewer or lower rule penalties. `rule_penalty` is the validation-only derived
+field `100 - calculated_score`. No paired antibody score is invented. Assay
+values are not read for feature decisions, and repeated AIntibody sequence
+records remain separate rows.

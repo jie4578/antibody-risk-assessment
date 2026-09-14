@@ -37,3 +37,16 @@ Processed tables preserve source identifiers, source row/sheet provenance,
 sequence hashes, sequence status/reason, raw assay columns, duplicates and
 missingness. Processing reads from `data/raw/` and writes only to
 `data/processed/` and `reports/data_audit/`.
+
+## Phase 4B frozen rule-feature boundary
+
+Feature extraction is pure frozen inference from record identity and VH/VL
+sequences. It calls the existing production analysis and scoring APIs without
+changing `core.py`, `scoring.py`, CDR boundaries, risk weights, thresholds or
+rules. VH and VL are analyzed independently. Native `calculated_score` is
+retained, and `rule_penalty = 100 - calculated_score` is a validation-only
+derived field; no paired score is created.
+
+Experimental assay values and labels, including affinity, SEC, expression,
+HIC, AC-SINS, BVP, Tm, Tagg and developability scores, are not read to make
+feature decisions. Duplicate records and analysis failures remain visible.

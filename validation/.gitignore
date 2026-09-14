@@ -1,4 +1,5 @@
 data/raw/*
 data/processed/*
+data/features/*
 reports/data_audit/*
 !data/raw/source_manifest.json
