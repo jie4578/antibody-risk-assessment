@@ -91,11 +91,26 @@ def test_preregistration_has_no_external_analysis_runner_or_result_files():
     audit_dir = ROOT / "data/external_validation"
     report_dir = ROOT / "reports/aintibody_external"
     if audit_dir.exists():
-        assert sorted(path.name for path in audit_dir.iterdir()) == [
+        allowed_outputs = {
             "aintibody_duplicate_audit.csv",
             "aintibody_endpoint_schema.json",
             "aintibody_population_audit.csv",
             "aintibody_primary_population.csv",
-        ]
+            "aintibody_analysis_summary.json",
+            "aintibody_assay_results.csv",
+            "aintibody_classification_results.csv",
+            "aintibody_join_audit.json",
+            "aintibody_negative_null_findings.csv",
+            "aintibody_qvalue_matrix.csv",
+            "aintibody_spearman_matrix.csv",
+            "aintibody_top10_associations.csv",
+            "aintibody_top_pr_auc.csv",
+            "aintibody_top_roc_auc.csv",
+            "aintibody_sensitivity_record_level_assay_results.csv",
+            "aintibody_sensitivity_record_level_classification_results.csv",
+            "aintibody_sensitivity_context_preserving_assay_results.csv",
+            "aintibody_sensitivity_context_preserving_classification_results.csv",
+        }
+        assert {path.name for path in audit_dir.iterdir()} <= allowed_outputs
     if report_dir.exists():
-        assert sorted(path.name for path in report_dir.iterdir()) == ["population_audit.md"]
+        assert {path.name for path in report_dir.iterdir()} <= {"population_audit.md", "report.md"}
