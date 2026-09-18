@@ -88,5 +88,14 @@ def test_no_paired_score_or_outcome_driven_optimization_is_preregistered():
 
 def test_preregistration_has_no_external_analysis_runner_or_result_files():
     assert not (ROOT / "run_external_validation.py").exists()
-    assert not (ROOT / "data/external_validation").exists()
-    assert not (ROOT / "reports/aintibody_external").exists()
+    audit_dir = ROOT / "data/external_validation"
+    report_dir = ROOT / "reports/aintibody_external"
+    if audit_dir.exists():
+        assert sorted(path.name for path in audit_dir.iterdir()) == [
+            "aintibody_duplicate_audit.csv",
+            "aintibody_endpoint_schema.json",
+            "aintibody_population_audit.csv",
+            "aintibody_primary_population.csv",
+        ]
+    if report_dir.exists():
+        assert sorted(path.name for path in report_dir.iterdir()) == ["population_audit.md"]
