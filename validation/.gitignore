@@ -1,5 +1,7 @@
 data/raw/*
 data/processed/*
 data/features/*
+data/benchmark/*
 reports/data_audit/*
+reports/jain_benchmark/*
 !data/raw/source_manifest.json
