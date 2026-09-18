@@ -110,7 +110,20 @@ def test_preregistration_has_no_external_analysis_runner_or_result_files():
             "aintibody_sensitivity_record_level_classification_results.csv",
             "aintibody_sensitivity_context_preserving_assay_results.csv",
             "aintibody_sensitivity_context_preserving_classification_results.csv",
+            "aintibody_hic_robustness.csv",
+            "aintibody_hic_length_strata.csv",
+            "aintibody_hic_specificity.csv",
+            "aintibody_logistic_adjustment.csv",
+            "aintibody_hic_robustness_summary.json",
         }
         assert {path.name for path in audit_dir.iterdir()} <= allowed_outputs
     if report_dir.exists():
-        assert {path.name for path in report_dir.iterdir()} <= {"population_audit.md", "report.md"}
+        assert {path.name for path in report_dir.iterdir()} <= {
+            "population_audit.md",
+            "report.md",
+            "hic_robustness_report.md",
+            "phase4d2_VH_oxidation_count.png",
+            "phase4d2_oxidation_count_combined.png",
+            "phase4d2_VH_cdr_oxidation_count.png",
+            "phase4d2_cdr_oxidation_count_combined.png",
+        }
