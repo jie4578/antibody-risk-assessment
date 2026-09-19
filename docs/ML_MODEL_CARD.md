@@ -93,3 +93,13 @@ prediction, family-independent generalization, clinical utility, causal
 interpretation, wet-lab replacement, therapeutic efficacy prediction,
 affinity prediction, automatic best-antibody selection, or a validated
 production-grade predictor.
+
+## Desktop use
+
+The Desktop Single Analysis page exposes these models only through an explicit
+“Run Experimental ML Estimates” action after valid VH and VL sequences have
+been analyzed. Execution is asynchronous and local; it does not call a
+provider API or automatically transfer results to Literature or AI Assistant.
+The page shows the numeric HIC estimate and the numeric probability of the
+frozen `NOT_DEVELOPABLE` class with the benchmark scope and limitations. It
+does not convert the probability into a categorical decision.
