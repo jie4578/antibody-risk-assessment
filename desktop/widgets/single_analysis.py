@@ -13,11 +13,19 @@ from desktop.literature_context import single_risk_context
 from desktop.ml_adapter import DesktopMLService, STATUS_READY, status_code, status_message
 from desktop.ml_metadata import BENCHMARK_ID, BENCHMARK_SCOPE, DEVELOPABILITY_MODEL_ID, ESM_MODEL_NAME, ESM_MODEL_REVISION, HIC_MODEL_ID, LIMITATION, LOCAL_INFERENCE_NOTICE, NO_CATEGORICAL_DECISION_NOTICE, RESEARCH_SUPPORT_NOTICE, evidence_text
 from desktop.research_summary import build_research_summary, render_research_summary
+from desktop.research_copilot import (
+    ResearchCopilotContext,
+    ResearchCopilotResponse,
+    ResearchCopilotSession,
+    build_copilot_context,
+    privacy_disclosure,
+)
+from desktop.settings import RuntimeLLMConfig, build_backend
 from desktop.workers import Worker, sanitize_error
 
 
 class SingleAnalysisPage(QWidget):
-    def __init__(self, parent=None, open_mutation=None, open_literature=None, ml_service=None, research_state_getter=None):
+    def __init__(self, parent=None, open_mutation=None, open_literature=None, ml_service=None, research_state_getter=None, config_getter=None):
         super().__init__(parent)
         self._open_mutation = open_mutation
         self._open_literature = open_literature
@@ -33,7 +41,13 @@ class SingleAnalysisPage(QWidget):
         self._rule_score = None
         self._ml_result = None
         self._research_state_getter = research_state_getter
+        self._config_getter = config_getter
         self._research_summary = None
+        self._copilot_context = None
+        self._copilot_session = None
+        self._copilot_worker = None
+        self._copilot_generation = 0
+        self._copilot_historical = False
         self._literature_evidence = []
         self.antibody_id = QLineEdit()
         self.sequence = QPlainTextEdit()
@@ -65,8 +79,9 @@ class SingleAnalysisPage(QWidget):
         summary = QFormLayout(); summary.addRow("Sequence length", self.length); summary.addRow("Risk Score", self.score); summary.addRow("Risk Level", self.level)
         self.table = QTableWidget(0, 4); self.table.setHorizontalHeaderLabels(["Position", "Motif", "Category", "Region"])
         self.table.itemSelectionChanged.connect(self._risk_selected)
-        layout = QVBoxLayout(self); layout.addLayout(form); layout.addLayout(buttons); layout.addWidget(self.message); layout.addLayout(summary); layout.addWidget(self.table); layout.addWidget(self.ml_section); layout.addWidget(self.summary_section)
+        layout = QVBoxLayout(self); layout.addLayout(form); layout.addLayout(buttons); layout.addWidget(self.message); layout.addLayout(summary); layout.addWidget(self.table); layout.addWidget(self.ml_section); layout.addWidget(self.summary_section); layout.addWidget(self.copilot_section)
         self._update_ml_controls()
+        self._update_copilot_controls()
 
     def _build_summary_section(self):
         self.summary_section = QGroupBox("Research Decision Summary")
@@ -82,11 +97,80 @@ class SingleAnalysisPage(QWidget):
         layout.addWidget(self.summary_status)
         layout.addWidget(self.build_summary_button)
         layout.addWidget(self.summary_view)
+        self._build_copilot_section()
+
+    def _build_copilot_section(self):
+        self.copilot_section = QGroupBox("AI Research Copilot")
+        self.copilot_privacy = QLabel()
+        self.copilot_privacy.setWordWrap(True)
+        self.copilot_status = QLabel("Build a current Research Summary before requesting an explanation.")
+        self.copilot_status.setWordWrap(True)
+        self.copilot_explain_button = QPushButton("Explain with AI")
+        self.copilot_context_button = QPushButton("View AI Context")
+        self.copilot_context_button.setEnabled(False)
+        self.copilot_context_view = QPlainTextEdit()
+        self.copilot_context_view.setReadOnly(True)
+        self.copilot_context_view.setVisible(False)
+        self.copilot_answer = QPlainTextEdit()
+        self.copilot_answer.setReadOnly(True)
+        self.copilot_answer.setPlaceholderText("AI explanation appears here after an explicit request.")
+        self.copilot_explain_button.clicked.connect(self.explain_with_ai)
+        self.copilot_context_button.clicked.connect(self._toggle_copilot_context)
+        actions = QHBoxLayout()
+        actions.addWidget(self.copilot_explain_button)
+        actions.addWidget(self.copilot_context_button)
+        actions.addStretch()
+        layout = QVBoxLayout(self.copilot_section)
+        layout.addWidget(QLabel("Optional provider-backed explanation of the deterministic Research Summary. It does not create a verdict or recommendation."))
+        layout.addWidget(self.copilot_privacy)
+        layout.addWidget(self.copilot_status)
+        layout.addLayout(actions)
+        layout.addWidget(self.copilot_context_view)
+        layout.addWidget(self.copilot_answer)
+
+    def _toggle_copilot_context(self):
+        self.copilot_context_view.setVisible(not self.copilot_context_view.isVisible())
+
+    def _runtime_config(self):
+        try:
+            config = self._config_getter() if callable(self._config_getter) else None
+        except Exception:
+            config = None
+        return config if isinstance(config, RuntimeLLMConfig) else RuntimeLLMConfig()
+
+    def _update_copilot_controls(self):
+        config = self._runtime_config()
+        self.copilot_privacy.setText(privacy_disclosure(config.provider))
+        if self._copilot_worker is not None:
+            self.copilot_explain_button.setEnabled(False)
+            self.copilot_context_button.setEnabled(self._copilot_context is not None)
+            self.copilot_status.setText("Generating an explanation from the current Research Summary…")
+            return
+        current = self._research_summary is not None and not self._research_summary.is_stale
+        self.copilot_explain_button.setEnabled(current)
+        self.copilot_context_button.setEnabled(self._copilot_context is not None and current)
+        if self._research_summary is None:
+            self.copilot_status.setText("Build a current Research Summary before requesting an explanation.")
+        elif not current:
+            self.copilot_status.setText("Research Summary is outdated. Rebuild it before requesting an AI explanation.")
+        elif self._copilot_session is None:
+            if self._copilot_historical and self.copilot_answer.toPlainText().strip():
+                self.copilot_status.setText("Historical explanation — based on an older Research Summary.")
+            else:
+                self.copilot_status.setText("Ready for an explicit AI explanation request.")
+
+    def _mark_copilot_historical(self):
+        if self._copilot_session is not None and self.copilot_answer.toPlainText().strip():
+            self._copilot_historical = True
+            self.copilot_status.setText("Historical explanation — based on an older Research Summary.")
 
     def _mark_summary_stale(self):
         if self._research_summary is not None:
             self._research_summary = self._research_summary.mark_stale()
             self.summary_status.setText("Outdated — evidence has changed. Rebuild Summary.")
+            self._copilot_generation += 1
+            self._mark_copilot_historical()
+            self._update_copilot_controls()
 
     def _research_summary_state(self):
         external = self._research_state_getter() if callable(self._research_state_getter) else {}
@@ -114,7 +198,81 @@ class SingleAnalysisPage(QWidget):
         self.summary_view.setPlainText(render_research_summary(self._research_summary))
         self.summary_view.setVisible(True)
         self.summary_status.setText("Summary built from the current evidence snapshot.")
+        had_previous_explanation = bool(self.copilot_answer.toPlainText().strip())
+        self._copilot_context = build_copilot_context(self._research_summary)
+        self._copilot_session = None
+        self._copilot_historical = had_previous_explanation
+        self.copilot_context_view.setPlainText(self._copilot_context.to_json())
+        if self.copilot_answer.toPlainText().strip():
+            self.copilot_status.setText("New Summary ready. The previous explanation is historical until you request a new one.")
+        self._update_copilot_controls()
         return self._research_summary
+
+    @staticmethod
+    def _run_copilot(config: RuntimeLLMConfig, context: ResearchCopilotContext) -> ResearchCopilotResponse:
+        backend = build_backend(config)
+        session = ResearchCopilotSession(context)
+        return session.explain(backend)
+
+    def explain_with_ai(self):
+        if self._copilot_worker is not None or self._research_summary is None or self._research_summary.is_stale:
+            self._update_copilot_controls()
+            return
+        try:
+            if self._research_summary.stale_for(self._research_summary_state()):
+                self._mark_summary_stale()
+                return
+        except Exception as error:
+            self.copilot_status.setText("AI explanation unavailable: " + sanitize_error(str(error)))
+            return
+        try:
+            context = self._copilot_context or build_copilot_context(self._research_summary)
+            config = self._runtime_config()
+        except Exception as error:
+            self.copilot_status.setText("AI explanation unavailable: " + sanitize_error(str(error)))
+            return
+        self._copilot_context = context
+        self.copilot_context_view.setPlainText(context.to_json())
+        self.copilot_privacy.setText(privacy_disclosure(config.provider))
+        token = self._copilot_generation
+        worker = Worker(self._run_copilot, config, context, secrets=[config.api_key])
+        self._copilot_worker = worker
+        worker.signals.finished.connect(lambda result, t=token: self._copilot_done(result, t))
+        worker.signals.error.connect(lambda message, t=token: self._copilot_error(message, t))
+        self._update_copilot_controls()
+        QThreadPool.globalInstance().start(worker)
+
+    def _copilot_done(self, result, token):
+        self._copilot_worker = None
+        if token != self._copilot_generation or self._research_summary is None or self._research_summary.is_stale:
+            self._update_copilot_controls()
+            return
+        if not isinstance(result, ResearchCopilotResponse) or not result.validation.allowed:
+            self.copilot_status.setText("AI response was blocked because it exceeded the evidence boundary.")
+            self._update_copilot_controls()
+            return
+        if result.summary_fingerprint != self._research_summary.fingerprint:
+            self.copilot_status.setText("AI response was discarded because the Research Summary changed.")
+            self._update_copilot_controls()
+            return
+        self._copilot_session = ResearchCopilotSession(self._copilot_context)
+        self._copilot_session.last_response = result
+        self._copilot_historical = False
+        self.copilot_answer.setPlainText(result.text)
+        self.copilot_status.setText("AI explanation complete. It is limited to the current Research Summary.")
+        self._update_copilot_controls()
+
+    def _copilot_error(self, message: str, token):
+        self._copilot_worker = None
+        if token != self._copilot_generation:
+            self._update_copilot_controls()
+            return
+        if "Response blocked:" in str(message):
+            self.copilot_status.setText("AI response was blocked because it exceeded the evidence boundary.")
+        else:
+            self.copilot_status.setText("AI explanation failed. See the provider error below.")
+        self.copilot_context_view.setPlainText(sanitize_error(message))
+        self._update_copilot_controls()
 
     def attach_literature_evidence(self, evidence):
         if evidence is not None:
@@ -125,6 +283,11 @@ class SingleAnalysisPage(QWidget):
         """Mark the snapshot stale when Mutation/Literature state changes elsewhere."""
 
         self._mark_summary_stale()
+
+    def notify_config_changed(self):
+        """Refresh provider disclosure after Settings applies a new config."""
+
+        self._update_copilot_controls()
 
     @property
     def research_summary(self):
