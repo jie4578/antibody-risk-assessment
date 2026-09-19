@@ -1,570 +1,274 @@
-# Antibody AI Research Assistant
+# Antibody Research Decision-Support Workbench
 
-[![Python 3.8+](https://img.shields.io/badge/Python-3.8%2B-blue)](https://www.python.org/)
-[![Gradio](https://img.shields.io/badge/Gradio-4.x-orange)](https://gradio.app/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+**v4.0.0** · local-first antibody sequence, evidence, and experimental-property research workbench
 
-一个面向 **AIDD（AI 药物研发）** 的复合型抗体可开发性分析项目，将三条技术线整合在一个可运行仓库里：
+This project supports antibody research workflows that combine sequence
+liability screening, local experimental-property model estimates, mutation
+hypothesis comparison, literature evidence, structured research summaries,
+and controlled AI explanation. It is decision support for human and wet-lab
+review, not an autonomous scientific decision-maker.
 
-1. **规则引擎**（`core.py`，既有）：扫描脱酰胺、异构化、氧化、N-糖基化等风险基序，标注 CDR / FW 区域，支持虚拟突变模拟、批量分析（CSV / FASTA / XLSX）与 Rule-based Computational Risk Score。
-2. **机器学习属性预测**（`ml/`，新增）：把抗体可变区序列编码为数值特征（长度 + AAindex 理化性质 + k-mer 哈希），训练**风险等级分类**与**风险分数回归**模型，含交叉验证、AUC / R²、特征重要性、可视化，覆盖"序列→特征→模型→验证"的完整 ML 流程。
-3. **检索增强生成 RAG**（`rag/`，新增）：内置抗体可开发性 / PTM 知识库，文档分块 → Embedding → 检索（向量 / BM25 / 混合 RRF）→ 上下文构建 → prompt 组装。
-4. **LLM 智能体**（`agent/`，新增）：工具调用(scan / mutate / score / predict / rag)、Memory、ReAct 智能体循环、多智能体编排（任务分解 + 专家协同），默认用可离线的 MockLLM，接入 key 可启用真实 LLM。
+## What it does
 
-核心设计原则：**可离线运行、无强制外部 API**。ML 采用 `numpy + scikit-learn + lightgbm`（可选）；LLM / Embedding 通过"后端抽象 + 本地兜底"实现，无 key 也能跑通演示，接入 key 即启用完整能力。
+- **Single Analysis**: paired VH/VL sequence validation, CDR/framework-aware
+  PTM and chemical-liability motif scanning, and deterministic rule scoring.
+- **Batch Analysis**: CSV, XLSX, and FASTA import with flexible column mapping,
+  chain inference, per-chain analysis, and CSV/XLSX export.
+- **Mutation Workspace**: validate a mutation, compare original and mutant
+  rule findings, and inspect arithmetic ML estimate deltas.
+- **Literature Evidence**: Europe PMC/PubMed search, relevance labeling,
+  evidence provenance, and citation-identifier validation.
+- **Experimental ML Estimates**: local ESM2-based HIC and frozen benchmark
+  composite estimates when local model artifacts are prepared.
+- **Research Decision Summary**: deterministic aggregation of already-produced
+  evidence with fingerprints and stale-state protection.
+- **Controlled AI Research Copilot**: an explicit, asynchronous explanation
+  layer grounded in the current Research Decision Summary.
+- **Provider compatibility**: DeepSeek, OpenAI, OpenAI-compatible endpoints,
+  Ollama, and Mock backends.
 
-> **关于 ML 标签的诚实说明**：`ml/` 里用"规则引擎打标签"生成可复现的合成数据集（weak label），因此模型学到的是规则引擎的**平滑/可泛化替身**，用于展示完整 ML 工程流程与可开发性相对排序，**未经实验验证**、不构成实验/临床结论。
+## Scientific scope and boundaries
 
-## 1. Project Overview
+The rule engine identifies predefined sequence liabilities such as
+deamidation, isomerization, oxidation, N-glycosylation motifs, and selected
+heuristic candidates. The calculated rule score is a prioritization score:
 
-本工具基于规则扫描抗体可变区序列中的常见翻译后修饰（PTM）与化学不稳定（Chemical Liability）风险基序，并按 CDR / Framework 区域定位。适用于抗体药物发现早期的可开发性初筛。
+> **Higher calculated score = lower calculated rule penalty.**
 
-支持：
+It is not a probability, experimental measurement, global developability
+score, clinical predictor, efficacy predictor, affinity predictor, or wet-lab
+replacement. CDR weighting and heuristic PTM candidates remain computational
+rules and require experimental verification.
 
-- 单条抗体序列分析
-- CDR 区域标注（Kabat 手动边界，可在界面中调整）
-- Chemical Liability motif 扫描（脱酰胺化 NG/NS/NN、异构化 DG/DS/DA、氧化 M）
-- PTM motif 扫描（N-糖基化 N-x-S/T；**O-糖基化 S/T 富集热点 heuristic**）
-- 虚拟突变 + 重扫（如 `N55Q`）
-- 批量分析
-- 三种输入格式：CSV / FASTA / XLSX
-- Rule-based computational risk score
+The ESM2 models estimate selected experimental properties from a frozen,
+internal AIntibody benchmark. Rule findings and ML estimates are separate
+evidence layers; the product does not create an overall combined score.
 
-### v2.0 · PTM / Glycosylation 增强
+## Quick Start — Windows PowerShell
 
-- **N-糖基化**（`rule_based`）：N-x-S/T（x ≠ P）规则扫描，命中位点附 **±3 aa 上下文（context）**。
-- **O-糖基化**（`heuristic`，候选，未经实验验证）：S/T 富集热点启发式——
-  - 滑动 **7 aa 窗口**，窗口内 **S/T ≥ 6/7** 视为富集区；
-  - 富集区内的 S/T 残基标记为候选热点；
-  - **SP / TP 抑制**：S/T 后紧跟脯氨酸(P)的位点被排除（GalNAc-T 抑制）；
-  - 明确标注为 **heuristic candidate，不是实验验证结果**，不替代 NetOGlyc 等实验/算法预测。
-- **RiskItem 新增字段**：`context`（±3 aa 上下文）、`evidence_level`（`rule_based` / `heuristic`）；
-  旧 `to_dict()` **保持 5 键兼容不变**，新字段通过 `to_detail_dict()` 输出。
-- **评分**：O-糖基化基础罚分 2.0（N-糖基化 9.0 不变），与 N-糖基化同属 **PTM** 类别桶；递减惩罚逻辑不变。
-- **批量分析**：O-糖基化计入 `PTM_risk_count`。
+Use a supported Python installation and a PowerShell terminal:
 
-> 诚实声明：O-糖基化为启发式候选（S/T 富集 + SP/TP 抑制），**未经实验验证**，仅供候选排序参考，不代表真实 O-糖基化发生。
-
-**本项目不是实验验证平台**，不是：
-
-- 实验数据预测器
-- 临床风险预测器
-- 结构预测器
-- LLM 自动科研结论系统
-
-所有输出仅用于候选序列的**相对优先级排序**，不构成任何实验或临床结论。
-
-### v3.0 · 科研分析 Agent / 事实边界（Fact Boundary）
-
-在规则引擎 / ML / RAG 之上，`agent/` 提供「能自主调用工具并输出结构化科研报告的 Agent」，核心是**防止 AI 越权推断**：
-
-```
-用户输入
-  ↓
-Orchestrator（任务分解）
-  ↓
-Specialist Agent（工具选择）
-  ↓
-真实工具（scan_antibody / risk_score / mutate_scan / rag_search / literature_search / predict_risk / batch_analysis）
-  ↓
-Tool Facts（结构化工具事实，带 sequence_source 来源标记）
-  ↓
-Final Agent（LLM 综合；只允许基于工具事实）
-  ↓
-Post-hoc Claim Validation（位点 / PMID / DOI / 伪造序列声明，违规自动重写一次）
-  ↓
-Plain Text Cleaning（强制纯文本，去除 Markdown）
-  ↓
-最终科研辅助结果
+```powershell
+git clone <repository-url>
+cd antibody-risk-assessment
+py -3.10 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install ".[desktop]"
+python -m desktop.main
 ```
 
-**事实边界四层机制**（确定性优先于 Prompt）：
+Provider configuration is optional. Rule analysis, batch analysis, mutation
+rule comparison, literature retrieval, and local summaries do not require an
+AI-provider key. To enable the optional Provider/Agent path, install the
+corresponding extras and configure credentials locally, never in Git:
 
-1. **`SCIENTIFIC_SYSTEM_PROMPT`**：统一科研行为规范——不自行计算评分、不新增工具未返回的 PTM、heuristic 必须标注「heuristic / 未经实验验证」、文献只来自 literature_search、用户给定位点不得冒充工具事实。
-2. **`fact_source` 注记**（确定性）：文献按主题相关性标注 direct / general / irrelevant；用户问题中出现的位点若工具未返回，标注「用户给定 / 未经工具验证」。
-3. **`enforce_fact_boundary` + `enforce_claim_boundaries`**（post-hoc，确定性）：数字 / 风险等级 / 位点 / PMID / DOI 必须来自工具实际返回；irrelevant 文献禁止引用；无合法用户序列时禁止输出序列长度 / 评分 / 风险位点。
-4. **序列输入边界（v9.3）**：`scan_antibody` / `mutate_scan` 的 `sequence` 必须能在用户问题中逐字找到，否则工具被阻止（`sequence_source=unavailable/invalid`），杜绝 Agent 自行构造序列。
-
-**v9.4**：新增 deterministic sequence length consistency validation，用于校验 Final Agent 输出中的序列长度声明是否与工具事实一致。
-
-**证据级别区分**：
-
-| 来源 | 含义 | 可否作为事实 |
-| --- | --- | --- |
-| 工具事实 | scan_antibody / risk_score / mutate_scan 实际返回 | ✅ 可直接引用 |
-| 知识库事实 | rag_search 返回 | ⚠️ 一般机制，非本序列验证 |
-| 文献证据 | literature_search / Europe PMC 实际返回 | ⚠️ 仅一般性证据，须 relevance != irrelevant |
-| 模型推断 | LLM 综合推断 | ❌ 必须标注 heuristic / 未经实验验证 |
-
-> 本项目是**科研辅助工具**：所有序列分析 / 评分 / 文献解读均不替代 LC-MS/MS、强制降解、结合活性、聚集等实验验证。工具识别（rule_based）与启发式（heuristic）结果均不等于实验事实。
-
-## 2. Architecture
-
-```
-Gradio UI (app.py)            CLI (cli.py)
-    │                              │
-    ├── 序列扫描（Single Sequence）─┘
-    │       ↓
-    │   core.scan_sequence()          ← 旧 API 入口
-    │       ↓
-    │   core.analyze_sequence()       ← 统一分析入口
-    │       ↓
-    │   AnalysisResult (models.py)
-    │       ↓
-    │   to_legacy_tuple()             ← 兼容 UI 旧 schema
-    │
-    ├── 虚拟突变（Mutation）
-    │       ↓
-    │   core.mutate_and_rescan()
-    │       ↓
-    │   core.mutate_sequence() → core.analyze_sequence()
-    │
-    ├── 批量分析（Batch Analysis）
-    │       ↓
-    │   input_parser.load_batch_input()    ← CSV / FASTA / XLSX
-    │       ↓
-    │   DataFrame (antibody_id, VH, VL)
-    │       ↓
-    │   batch_analysis.batch_analysis()
-    │       ↓
-    │   core.analyze_sequence()            ← 逐条、逐链
-    │       ↓
-    │   scoring.compute_risk_score()
-    │       ↓
-    │   DataFrame（14 列结果）
-    │       ↓
-    │   write_result_csv()                 ← 下载临时 CSV
-    │
-    └── ML 属性预测（ml/）           ← 新增
-            ↓
-        ml.data.build_dataset()       合成抗体序列 + 规则弱标签
-            ↓
-        ml.features.SequenceEncoder   序列 → 数值特征（长度 + AAindex + k-mer 哈希）
-            ↓
-        ml.models.make_model          分类 / 回归模型
-            ↓
-        ml.train.train_pipeline       训练 / 交叉验证 / 指标(AUC,R²) / 特征重要性 / 保存
-            ↓
-        ml.evaluate                   可视化（混淆矩阵 / ROC / 特征重要性）
+```powershell
+python -m pip install ".[agent]"
 ```
 
-各模块职责：
+For the local ESM2 workflow, install the optional ML/ESM2 dependencies:
 
-| 模块 | 职责 |
+```powershell
+python -m pip install ".[dl]"
+```
+
+The frozen deployment-model builder is:
+
+```powershell
+python validation/run_build_deployment_models.py
+```
+
+This command reads the frozen Phase 5 TRAIN + VALIDATION inputs and local
+frozen ESM2 embeddings, then creates these ignored local artifacts:
+
+- `artifacts/ml_models/hic_esm2_v1.joblib`
+- `artifacts/ml_models/developability_esm2_v1.joblib`
+- `artifacts/ml_models/model_manifest.json`
+
+The builder does not use the frozen TEST rows. The raw validation datasets,
+embedding files, and model binaries are not shipped as ordinary Desktop
+release files; maintainers need the corresponding local validation bundle to
+rebuild them. The build is reproducible and records artifact hashes in the
+manifest.
+
+The frozen ESM2 representation is
+`facebook/esm2_t30_150M_UR50D` at revision
+`a695f6045e2e32885fa60af20c13cb35398ce30c`. The first live ESM2 load may
+download weights into the Hugging Face cache, so network access can be needed
+once. Subsequent cached inference is local. CUDA is optional; CPU fallback and
+the frozen float32 representation are supported. No inference-speed guarantee
+is made.
+
+## Current workflow
+
+```text
+Paired VH/VL
+    ↓
+Sequence Liability Screening
+    ↓
+Experimental ML Estimates
+    ↓
+Mutation Hypothesis Comparison
+    ↓
+Literature Evidence
+    ↓
+Research Decision Summary
+    ↓
+Controlled AI Research Copilot
+    ↓
+Human / Experimental Decision
+```
+
+Batch Analysis is a parallel screening workflow for many antibody records;
+its outputs do not silently become evidence for another open analysis.
+
+## Production architecture
+
+```mermaid
+flowchart TD
+    Input[VH / VL] --> Rules[Rule Engine]
+    Input --> ESM[Local ESM2 ML Runtime]
+    Input --> Mutation[Mutation Workspace]
+    Input --> Batch[Batch Analysis]
+    Rules --> Summary[ResearchDecisionSummary]
+    ESM --> Summary
+    Mutation --> Summary
+    Batch --> Human[Human Review]
+    Literature[Literature APIs] --> Summary
+    Summary --> Copilot[Controlled AI Research Copilot]
+    Copilot --> Human
+    Providers[Provider Compatibility Layer] --> Copilot
+```
+
+Validation is separate from ordinary Desktop inference:
+
+```mermaid
+flowchart LR
+    Public[Jain / AIntibody] --> Features[Frozen rule features]
+    Features --> Retrospective[Retrospective validation]
+    Retrospective --> Benchmark[Frozen ML benchmark]
+    Benchmark --> Sealed[One-time sealed TEST evaluation]
+    Sealed --> Deployment[Deployment-model definition]
+```
+
+Validation datasets are not required for ordinary Desktop inference after
+deployment artifacts have been built.
+
+### Module map
+
+| Area | Main responsibility |
 | --- | --- |
-| `core.py` | 单条序列分析核心：风险基序库（RISK_MOTIFS）、氨基酸校验（validate_sequence）、CDR 标注、motif 扫描、突变模拟 |
-| `models.py` | 统一数据模型：RiskItem / AnalysisResult，以及旧 API（tuple / 中文键 dict）的兼容适配 |
-| `scoring.py` | Rule-based Computational Risk Score 计算 |
-| `batch_analysis.py` | 批量调度：逐条复用 analyze_sequence，单条异常隔离，14 列结果输出，下载用临时 CSV 生命周期管理 |
-| `input_parser.py` | 统一输入解析：CSV / FASTA / XLSX → 统一 DataFrame（antibody_id, VH, VL） |
-| `app.py` | Gradio 界面：序列扫描 / 虚拟突变 / 批量分析 三个 Tab |
-| `cli.py` | 命令行入口：`scan` / `ml-train` / `ml-predict`（后续加 `batch` / `rag` / `agent`） |
-| `ml/` | ML 属性预测：数据合成（data.py）、序列表示（features.py）、模型（models.py）、训练（train.py）、可视化（evaluate.py） |
-
-## 3. Installation
-
-环境要求：
-
-- Python 3.8 或以上
-
-基础安装（规则引擎 + ML + CLI + Gradio，默认即可运行）：
-
-```bash
-pip install -r requirements.txt        # 与 pyproject.toml [dependencies] 完全对齐
-# 或
-pip install .                          # 推荐：读取 pyproject.toml 依赖
-```
-
-可选增强（按需安装）：
-
-```bash
-pip install ".[ml]"     # lightgbm（额外树模型）
-pip install ".[all]"    # lightgbm + faiss + chromadb + langchain（RAG/Agent 用）
-pip install ".[dev]"    # pytest 等测试工具
-```
-
-使用入口（两种）：
-
-1. **Gradio 界面**（推荐演示）：
-
-```bash
-python app.py
-```
-
-（`app.py` 默认以 `demo.launch(theme=gr.themes.Soft(), share=False)` 启动；仅显式设置 `GRADIO_SHARE=true` 时才开启公开临时分享链接，也可直接访问本地地址。）
-
-`app.py` 现含 **6 个 Tab**：🔍 序列扫描 / 🧪 虚拟突变 / 📊 批量分析（原有）+ 🔮 **ML 风险预测** / 📚 **RAG 知识问答** / 🤖 **智能体 Agent**（新增，分别对接 `ml/`、`rag/`、`agent/` 三层能力）。
-
-2. **命令行**：
-
-```bash
-python cli.py scan --seq "EVQLVESGGGLVQPGGSLRLSCAASGFNIKDTYIHWVRQAPGKGLEWVARIYPTNGYTRYADSVKGRFTISADTSKNTAYLQMNSLRAEDTAVYYCSRWGGDGFYAMDYWGQGTLVTVSS"
-python cli.py ml-train --n 800 --task classification --model logistic --save ml/artifacts/cls.joblib
-python cli.py ml-predict --model ml/artifacts/cls.joblib --seq "<待预测序列>"
-```
-
-3. **端到端一键演示**（四层全跑，产出报告 + 仪表盘图到 `demo/`）：
-
-```bash
-python examples/run_full_demo.py
-# 产物: demo/DEMO_REPORT.md（四层输出汇总）、demo/dashboard.png（ML 仪表盘）
-```
-
-## 4. Input Formats
-
-批量分析支持三种输入格式，统一解析为 `antibody_id` / `VH` / `VL` 三列 DataFrame 后交给 `batch_analysis()`。**相同序列无论以哪种格式输入，分析结果（risk_score / risk_level / analysis_status / 风险计数）完全一致。**
-
-### CSV
-
-每行一条抗体，包含三列（列名必须完全一致，列顺序不限）：
-
-| 列名 | 说明 |
-| --- | --- |
-| `antibody_id` | 抗体唯一标识 |
-| `VH` | 重链可变区序列（单字母氨基酸） |
-| `VL` | 轻链可变区序列（单字母氨基酸） |
-
-示例见仓库根目录 `example_antibodies.csv`。
-
-### FASTA
-
-推荐使用 `>抗体ID_VH` / `>抗体ID_VL` 的 header 命名，也支持 `>` 加 `|` 分隔（`>抗体ID|VH` / `>抗体ID|VL`），链标记大小写不敏感。VH 与 VL 按抗体 ID 自动配对；某条抗体缺少一条链时，该链在结果中记为空值，由现有分析逻辑处理。
-
-- 支持多条序列。
-- 序列可跨多行书写，解析时自动合并为单行。
-- 序列自动转为大写，并去除行首尾空白。
-
-示例：
-
-```
->AB001_VH
-EVQLVESGGGLVQPGGSLRLSCAASGFNIKDTYIHWVRQAPGKGLEWVARIYPTNGYTRYADSVKGRFTISADTSKNTAYLQMNSLRAEDTAVYYCSRWGGDGFYAMDYWGQGTLVTVSS
-
->AB001_VL
-DIQMTQSPSSLSASVGDRVTITCRASQDVNTAVAWYQQKPGKAPKLLIYSASFLYSGVPSRFSGSRSGTDFTLTISSLQPEDFATYYCQQHYTTPPTFGQGTKVEIK
-```
-
-（`>AB001|VH` / `>AB001|VL` 是等价的 header 写法。）
-
-### Excel
-
-- 仅支持 `.xlsx` 文件。
-- 默认读取第一个 sheet。
-- 列名与 CSV 相同：`antibody_id`、`VH`、`VL`，列顺序不限。
-- 存在重复的 `antibody_id` 会报错。
-
-> 当前**不支持** `.xls` / `.xlsm` 格式。
-
-## 5. Rule-based Computational Risk Score
-
-批量分析输出中的 `risk_score`（0–100）与 `risk_level`（Low / Medium / High Risk）由纯 Python 确定性规则计算。
-
-公式：
-
-```
-score = 100 − total_penalty
-```
-
-- baseline = 100
-- score 被 clamp 到 0–100
-- 风险等级：
-
-| 区间 | 等级 |
-| --- | --- |
-| 80–100 | Low Risk |
-| 60–79 | Medium Risk |
-| 0–59 | High Risk |
-
-CDR 区域使用启发式权重（heuristic weighting）：
-
-- CDR = 1.3
-- Framework = 1.0
-
-同一基序重复出现：第 1 次全额罚分，后续 ×0.5（递减惩罚）。
-
-> **This score is a rule-based computational prioritization score and has not been experimentally validated.**
->
-> **The CDR region weighting is a heuristic used for computational prioritization and has not been experimentally validated.**
-
-该评分是基于规则的计算优先级评分，未经实验验证；CDR 区域权重属于计算优先级排序中的启发式设计，未经实验验证。该评分仅用于候选序列的相对优先级排序，**不代表**真实药物稳定性、真实糖基化发生、PK / 活性 / 免疫原性结果，也不是机器学习模型或实验数据校准结论。
-
-## 6. Risk Score Examples
-
-使用当前 `example_antibodies.csv` 的真实分析结果：
-
-| antibody_id | risk_score | risk_level |
-| --- | --- | --- |
-| AB001 | 64.30 | Medium Risk |
-| AB002 | 74.00 | Medium Risk |
-| AB006_RISK | 48.95 | High Risk |
-
-这些结果仅用于展示当前规则系统如何对候选序列排序，**不能**解释为：
-
-- "AB001 有 64% 安全性"
-- "64 分意味着实验成功率 64%"
-- "High Risk = 实验一定失败"
-
-## 7. ML 属性预测（AIDD，新增）
-
-`ml/` 提供一个**完整、可复现**的抗体序列属性预测流程，用于把"序列"变成"可排序的判断"，并展示端到端机器学习工程实践。
-
-### 7.1 数据（弱标签）
-
-`ml/data.py` 用现有确定性**规则引擎**给合成的抗体样序列打标签（`risk_score` / `risk_level` / `high_risk`），得到一份可离线复现的数据集。这样做是出于两点考虑：
-
-- 项目只有少量真实抗体序列，不足以训练，合成数据让流程自洽；
-- 用规则引擎打标签（weak label）可保证**无需外部数据集、无需网络、结果确定**。
-
-```python
-from ml.data import build_dataset
-df = build_dataset(n=800, seed=42)
-print(df.head())
-```
-
-> 诚实说明：模型学到的是规则引擎的**平滑/可泛化替身**，用于可开发性相对排序；不是真实实验/临床预测。
-
-### 7.2 序列特征
-
-`ml/features.py` 的 `SequenceEncoder` 把序列编码为定长向量，特征包括：
-
-- 长度（归一化）
-- **AAindex 理化性质统计**（mean/std/min/max）：疏水性（Kyte-Doolittle）、体积、电荷、极性
-- **k-mer 计数的哈希特征**（feature hashing，固定维度、长度无关）
-
-```python
-from ml.features import SequenceEncoder
-enc = SequenceEncoder(k_max=3, kmer_dim=256)
-X = enc.transform(df["sequence"].tolist())   # (n, n_features)
-```
-
-### 7.3 模型
-
-`ml/models.py` 提供分类与回归两类模型，默认用 scikit-learn，安装 `lightgbm` 后额外提供梯度提升树：
-
-- 分类（高风险与否）：`logistic` / `random_forest` / `gbdt` / `lightgbm`
-- 回归（风险分数）：`ridge` / `random_forest` / `gbdt` / `lightgbm`
-
-**（可选）Transformer 分类器**：`ml/transformer.py` 用 PyTorch 实现"位置编码 + 多头自注意力 + 前馈网络"的**最小 Transformer 编码器**（`build_transformer_classifier`），把序列当 token 处理，体现 Transformer 基础概念。需 `pip install '.[dl]'`（torch）后启用；**已实测**（torch 2.13 CPU）：合成数据上 5 epochs 收敛、测试集准确率 ≈ 0.82（见 `examples/train_transformer_demo.py`）。
-
-### 7.4 训练与评估
-
-`ml/train.py` 的 `train_pipeline` 完成分层切分、训练、测试集评估（分类：accuracy / precision / recall / f1 / roc_auc；回归：R² / MAE / RMSE）、可选 5 折交叉验证、特征重要性，并可落盘模型供复用。
-
-```python
-from ml.train import train_pipeline
-result = train_pipeline(df, task="classification", model_name="logistic")
-print(result.report)
-```
-
-`ml/evaluate.py` 生成混淆矩阵 / ROC / 特征重要性图：
-
-```python
-from ml.evaluate import roc_curve_plot, feature_importance_plot
-roc_curve_plot(y_true, proba, "ml/artifacts/roc.png")
-```
-
-### 7.5 直接跑通（里含示例输出）
-
-```bash
-python cli.py ml-train --n 800 --task classification --model logistic --save ml/artifacts/cls.joblib
-```
-
-示例输出（`n=300, logistic`，实测）：accuracy 0.85、roc_auc 0.8542，Top 特征为 `hydropathy_KD_mean`、`volume_std` 等理化性质——提示模型主要利用疏水性/体积信息判断风险。
-
-## 8. RAG 检索增强生成（新增）
-
-`rag/` 实现一个**可离线运行**的 RAG 管线，覆盖"向量化 / 检索策略 / 上下文构建"三个核心环节，并对接（下一步）Agent 工具调用。
-
-```
-rag/
-├── knowledge_base.py  内置抗体可开发性 / PTM / CDR / 免疫原性知识片段（教材式摘要）
-├── chunking.py        文档分块：按标题(chunk_by_heading) / 按长度滑窗(chunk_by_length)
-├── embeddings.py      Embedding 抽象：TfidfEmbedder(稀疏) / HashingEmbedder(稠密) / 可选 sentence-transformers
-├── store.py           内存向量库 + 余弦检索；可选 FaissStore(faiss-cpu)
-├── retrieval.py       检索策略：vector / keyword(BM25) / hybrid(RRF 融合)
-├── context.py         上下文构建 + prompt 组装（带引用溯源）
-└── pipeline.py        RagPipeline：文档→分块→向量化→检索→上下文→prompt
-```
-
-### 8.1 一条命令跑通
-
-```bash
-python cli.py rag-query --q "抗体可变区出现非保守糖基化位点有什么风险？" --show-prompt
-```
-
-### 8.2 代码用法
-
-```python
-from rag import RagPipeline
-from rag.knowledge_base import KNOWLEDGE_BASE
-
-pipe = RagPipeline(embedder="tfidf", strategy="hybrid", top_k=4)
-pipe.index(KNOWLEDGE_BASE)                 # 推荐：内置知识库
-result = pipe.query("抗体的脱酰胺化主要发生在哪里？")
-print(result["context"])                   # 组装好的上下文（带 [n] 引用）
-print(result["prompt"])                    # 可交给 LLM 的 prompt
-```
-
-### 8.3 设计要点
-
-- **向量化**：默认用 TF-IDF（字符 n-gram，兼容中英文）与 n-gram 哈希（稠密）；安装 `sentence-transformers` 可升级为真实语义向量。
-- **检索策略**：`vector`（余弦）/ `keyword`（自实现 BM25，无额外依赖）/ `hybrid`（Reciprocal Rank Fusion 融合两路，兼顾语义与精确词）。
-- **上下文构建**：`build_context` 把命中块拼成带 `[n]` 引用的上下文；`assemble_prompt` 用模板组装，提示模型"基于资料回答、不足则说明、不要编造"。
-- **可离线**：全程无外部 API / 无网络；中文按字符 n-gram 处理，避免中文分词问题。
-
-> 说明：内置知识库为教材/综述式摘要，用于技术演示 RAG 能力，**非真实文献引用**；接入真实文献库只需替换 `KNOWLEDGE_BASE` 或换成文档路径。
-
-### 8.4 Biomedical Literature RAG（Stage A5，真实文献检索与证据约束回答）
-
-> **This project retrieves biomedical literature from external APIs and uses retrieved evidence as the primary grounding source for LLM answers.**
-
-真实文献 RAG 与内置知识库 RAG 是**两个不同模块**：
-- 内置知识库 RAG（上文）：离线、教材式摘要，用于演示与兜底（`rag_search` 保留）。
-- **Biomedical Literature RAG**（`literature/`）：在线检索 **Europe PMC（主源）/ PubMed E-utilities（备源）**，只返回真实 API 数据，LLM 只能引用本次检索返回的 Evidence。
-
-**反幻觉铁律**：
-- 论文的 title / authors / journal / PMID / PMCID / DOI / year **必须全部来自 API 返回**；缺失置空，绝不由 LLM 补全。
-- 最终回答只能引用本次 `literature_search` 返回的 Evidence；引用会经过 **Citation Validator** 校验（回答中的 PMID/DOI 必须 ∈ Evidence）。
-- 未检索到文献时，明确回答 **"未检索到足够相关的文献证据。"**，不得编造论文。
-- API 故障 ≠ 无结果：检索服务不可用时明确提示"文献检索服务暂时不可用。"。
-
-**流水线**：User Question → Query Generator（LLM 只生成检索词，离线规则兜底）→ `search_literature()` → Evidence[] → Rerank（确定性 relevance score + Top-K）→ Context Builder → DeepSeek → Citation Validator → Final Answer。
-
-**用法**：
-
-```bash
-# CLI（真实检索 + LLM 回答 + 引用校验）
-python cli.py literature-search --q "什么是抗体脱酰胺化？"
-python -m literature.cli --query "antibody deamidation"
-
-# RAG Tab（app.py）：📚 RAG 知识问答 = 真实文献检索 + 证据 + LLM 回答 + Sources
-python app.py
-
-# 测试：离线单测全绿；真实网络测试手动执行
-python -m pytest -q            # 默认跳过 live
-python -m pytest -m live       # 真实调用 Europe PMC / PubMed
-```
-
-模块结构：`literature/`（evidence / search / query_generator / reranker / context / validator / cache / pipeline / cli / errors），SQLite 缓存默认 7 天（`literature_cache/` 已 gitignore）。全文仅对 Open Access 论文获取，不绕过版权。
-
-> 与 Risk Score 的关系：本模块的文献回答是**基于真实文献证据的检索增强生成**，与 `risk_score`（规则计算优先级评分，未经实验验证）相互独立，二者不可混淆。This score is a rule-based computational prioritization score and has not been experimentally validated.
-
-### 8.5 评估体系（Evaluation）
-
-"如何验证系统好坏"是面试必问。本模块提供两层评估（`literature/eval_benchmark.py`）：
-
-- **离线确定性基准**（`python -m literature.cli --eval`）：固定小语料 + 人工标注相关 PMID，跑 rerank 统计 **hit@k / MRR@k**，作为回归基线（确定性、不联网、进测试）。
-  - 实测：4 个查询 **avg_hit@5 = 1.0, avg_mrr@5 = 1.0**（构造语料的 sanity 基线）。
-- **在线基准**（`python -m literature.cli --eval --live`，需网络/key）：真实检索若干查询统计 hit@5，并用 `answer_question` 统计**引用校验通过率**。
-  - 实测（2026 现场）：检索 hit@5 = 0.33（3 个真实查询中 1 个命中人工标注 PMID——固定期望 PMID 判定偏严，且真实文献库会漂移，如实报告）；**引用校验通过率 = 100%（2/2）**——回答中出现的 PMID/DOI 全部属于本次检索证据，无幻觉引用。
-
-> 说明：离线基准用于**回归防退化**（改检索逻辑后跑一遍），在线基准用于**对外展示与自检**；两者都只衡量"引用真实性"与"检索命中"，不声称衡量回答的医学正确性。
-
-## 9. LLM / Agent 智能体（新增）
-
-`agent/` 实现一个**可离线运行**的工具调用智能体与多智能体编排器，覆盖"LLM 应用与智能体开发 / Agent / Tool Calling / Memory / 多智能体协作"。
-
-```
-agent/
-├── llm.py           LLM 后端抽象:MockLLM(离线) + OpenAILLM / DeepSeekLLM(可选,drop-in);ToolCall / Observation
-├── tools.py         工具注册:scan_antibody / mutate_scan / risk_score / predict_risk / rag_search
-├── memory.py        会话记忆(滚动上下文 + 轻量事实积累)
-├── agent.py         真 ReAct 迭代循环:Thought → Action(单步调工具) → Observation → 再决策 → Final Answer;工具失败反思重试;max_steps 截断
-└── orchestrator.py  多智能体编排:主管分解任务 → scan_agent / ml_agent / knowledge_agent 协同 → 汇总
-```
-
-### 9.1 一条命令跑通
-
-```bash
-# 单智能体（知识问答，自动走 RAG）
-python cli.py agent-ask --q "什么是脱酰胺化？"
-# 多智能体（评估序列 + 知识问答，分解给 scan_agent + knowledge_agent）
-python cli.py agent-orchestrate --q "评估这条序列的风险并告诉我脱酰胺化为什么重要：<序列>"
-```
-
-**接入真实 LLM**（默认 `MockLLM` 离线演示；加 `--backend deepseek` 即用真实函数调用，需在 `.env` 填 key）：
-
-```bash
-python cli.py agent-ask --q "什么是脱酰胺化？" --backend deepseek
-python examples/run_real_llm_demo.py   # Agent + 多智能体 + LangChain 端到端
-```
-
-**Gradio 界面会自动检测**：`.env` 配置了 key 时，📚 RAG 问答（生成自然回答）与 🤖 智能体 Agent 两个 Tab 自动使用真实 LLM；没有 key 或调用失败时自动回退离线 mock，并在日志中标注所用后端。
-
-配置步骤与说明见 `docs/REAL_LLM_SETUP.md`（`.env.example` 为模板，`.env` 不入库）。
-
-### 9.2 代码用法
-
-```python
-from agent import Agent, Orchestrator
-
-# 单智能体：自动识别问题并调用工具（扫描/突变/打分/ML预测/RAG）
-agent = Agent()
-agent.ask("请评估这条序列的风险：" + SEQ)
-
-# 多智能体：主管分解任务，专家协同执行后汇总
-orchestrator = Orchestrator()
-result = orchestrator.run("评估这条序列的风险并告诉我脱酰胺化为什么重要：" + SEQ)
-print(result["answer"])
-```
-
-### 9.3 设计要点
-
-- **可离线**：默认 `MockLLM`（关键词意图规划工具调用 + 模板作答），无 key / 无网络也能演示完整 Agent 循环；`OpenAILLM` / `DeepSeekLLM` 是 drop-in，接入 key 即启用真实函数调用。
-- **Tool Calling**：工具带 schema（`to_schema()` 生成 OpenAI tools 格式），能被 LLM 函数调用。
-- **Memory**：`ConversationMemory` 记录对话与工具观察，跨轮共享上下文。
-- **多智能体**：`Orchestrator` 依据问题把任务分解给专家智能体（规则扫描 / ML 预测 / 知识检索），共享记忆协同，再聚合。
-- **工程成果工具化**：把既有规则引擎 / ML / RAG 全部封装为可调用工具，体现"把工程能力做成 Agent 的武器"。
-- **（可选）LangChain 集成**：`agent/langchain_adapter.py` 把默认工具打包成 LangChain `StructuredTool` 并装配 ReAct Agent，复用 LangChain 生态；**已实测**（langchain 1.3，自动兼容 0.x `AgentExecutor` 与 1.x `LangGraph` 两代 API）：工具可被 LangChain 正确调用（含参数解析）；完整 Agent 运行需 API key。
-
-## 10. Limitations
-
-当前工具存在以下限制：
-
-1. 核心风险评估基于规则（rule-based）；新增 `ml/` 的机器学习模型以规则引擎为弱标签（rule-supervised surrogate），并非真实实验数据集训练
-2. 未经实验验证
-3. CDR 使用当前编号 / 索引近似（Kabat 手动边界）
-4. VH / VL 当前共用同一套 CDR 参数（未按链独立）
-5. 无结构信息
-6. 无表达量数据
-7. 无 PK 数据
-8. 无免疫原性数据
-9. N-糖基化是序列 motif 预测，不代表真实糖基化发生
-10. score 不是概率
-11. score 不是临床指标
-12. score 不是实验结果
-
-## 11. Testing
-
-```bash
+| `core.py` | Sequence validation, CDR annotation, liability/PTM scanning, mutation rescan |
+| `scoring.py` | Deterministic rule-based prioritization score |
+| `input_parser.py`, `batch_analysis.py` | Batch input normalization and per-chain analysis |
+| `desktop/` | PySide6 Desktop workflow, state, workers, adapters, and evidence views |
+| `ml_inference/` | Lazy local inference for the frozen ESM2 deployment models |
+| `literature/` | Europe PMC/PubMed evidence retrieval, relevance, and citation validation |
+| `agent/` | Provider abstraction, tool calling, fact boundaries, and orchestration |
+| `validation/` | Isolated dataset, benchmark, and reproducibility code; not product logic |
+
+## Local versus network behavior
+
+| Workflow | Runs locally? | May use network? | What may leave the machine? |
+| --- | --- | --- | --- |
+| Rule Analysis | Yes | No | Nothing |
+| Mutation Rule Analysis | Yes | No | Nothing |
+| Batch Analysis | Yes | No | Nothing |
+| Research Decision Summary | Yes | No | Nothing |
+| Cached ESM2/model inference | Yes | No | Nothing |
+| Initial ESM2 model retrieval | Local after retrieval | Yes, Hugging Face retrieval | Sequence analysis is not sent to a Provider; model files are retrieved |
+| Literature search | Partly | Yes, Europe PMC/PubMed | Search query and API request metadata |
+| Remote AI Provider | No | Yes | The configured structured prompt/context; credentials stay local |
+| Local Ollama | Yes | Local service only | Data stays on the configured local machine/service |
+| AI Research Copilot | Summary generation is local UI work | Provider-dependent | Structured Research Summary context; full VH/VL is not included by default |
+
+The `.env` file, keyring entries, API keys, tokens, and private certificates
+must remain local. See [`docs/REAL_LLM_SETUP.md`](docs/REAL_LLM_SETUP.md) for
+provider setup details.
+
+## Scientific validation
+
+The frozen validation work is documented in
+[`validation/PHASE5_ML_BENCHMARK_SUMMARY.md`](validation/PHASE5_ML_BENCHMARK_SUMMARY.md)
+and [`validation/PHASE5_TEST_EVALUATED.md`](validation/PHASE5_TEST_EVALUATED.md).
+
+- **Jain 2017**: broad current-rule associations were largely weak or null.
+- **AIntibody**: assay-specific oxidation/HIC relationships emerged.
+- **HIC / ESM2 frozen held-out evidence**: Spearman rho `0.834662`, R²
+  `0.625834`, N=`72`.
+- **Composite / ESM2 frozen held-out evidence**: PR-AUC `0.611665`, ROC-AUC
+  `0.691468`, N=`95`.
+
+**Critical limitation:** 84/95 TEST sequences had paired-min sequence identity
+≥0.90 to TRAIN. This does **not** establish family-independent generalization.
+The TEST set has been observed once under the frozen protocol and cannot be
+reused as a new untouched final test.
+
+The frozen benchmark supports research-property estimation within its tested
+scope; it does not establish universal developability prediction, clinical
+utility, causal mutation effects, or family-independent performance.
+
+## Research Summary and Copilot boundaries
+
+The Research Decision Summary is deterministic. It aggregates existing
+evidence and does not run an LLM, rerun rules, rerun ML, search Literature,
+create an overall score, or create a final recommendation.
+
+The Copilot is an explicit, asynchronous explanation layer for the current
+summary. It uses the configured Provider, does not receive full raw VH/VL by
+default, validates DOI/PMID/PMCID identifiers against current evidence, and
+blocks selected unsupported recommendation/generalization language. It does
+not call scientific tools, automatically search Literature, rerun ML, replace
+the deterministic summary, or act as the scientific source of truth.
+
+See [`docs/RESEARCH_DECISION_SUMMARY.md`](docs/RESEARCH_DECISION_SUMMARY.md)
+and [`docs/AI_RESEARCH_COPILOT.md`](docs/AI_RESEARCH_COPILOT.md).
+
+## Tests
+
+The normal application suite excludes tests marked `live` by default:
+
+```powershell
 python -m pytest -q
+python -m pytest validation/tests -q
+python -m pytest validation/tests/test_ml_inference_runtime.py -q
 ```
 
-当前非 live 测试基线为 **375 passed, 4 deselected, 0 failed**；标记为 `live` 的真实网络测试默认不在普通 `pytest` 中运行，需使用 `python -m pytest -m live` 手动执行。可选模块 torch / langchain 已实测。新增测试时请保持全绿。
+The v4 baseline is 528 passed, 4 deselected, 5 warnings for the application
+suite; validation is 139 passed and the ML runtime suite is 10 passed. Live
+network tests require an explicit `python -m pytest -m live` invocation.
 
-## 12. 应用场景
+## Documentation and safe demo
 
-- 杂交瘤 / 噬菌体展示筛选后，对候选抗体序列进行快速成药性初筛
-- 人源化改造后，检测是否引入新的化学降解风险
-- 理性设计突变，去除高风险基序，指导湿实验
-- 生物信息学入门项目，展示"领域知识 + Python 实战"能力
-- 作品：四层 AIDD 流水线（规则 → ML → RAG → Agent）
+- [`docs/V4_DEMO_WALKTHROUGH.md`](docs/V4_DEMO_WALKTHROUGH.md) — concise
+  Desktop walkthrough and later screenshot checklist.
+- [`docs/RELEASE_NOTES_V4.md`](docs/RELEASE_NOTES_V4.md) — v4.0 release notes.
+- [`docs/PROJECT_INTERVIEW_GUIDE.md`](docs/PROJECT_INTERVIEW_GUIDE.md) —
+  technically grounded interview Q&A.
+- [`docs/ML_MODEL_CARD.md`](docs/ML_MODEL_CARD.md) — frozen local ML model
+  card.
+- [`validation/PHASE5_ML_BENCHMARK_SUMMARY.md`](validation/PHASE5_ML_BENCHMARK_SUMMARY.md)
+  — frozen benchmark summary.
+- [`validation/PHASE5_TEST_EVALUATED.md`](validation/PHASE5_TEST_EVALUATED.md)
+  — one-time TEST evaluation marker.
 
-## 13. 测试与验证（Tests & Validation）
+For a safe synthetic/reference walkthrough, use the tracked
+`example_antibodies.csv`. Do not place private sequences, credentials, or
+benchmark TEST labels in screenshots, examples, or issue reports.
 
-### Automated Tests
+## Portfolio perspective
 
-- **375 passed, 4 deselected（live）, 0 failed**
-- 覆盖：规则引擎 / 评分 / 批量 / mutation / RAG / literature / Agent（Tool Calling、ReAct、prompt 注入、事实边界、post-hoc 校验、序列输入边界、展示层纯文本清洗）
-- 运行：`python -m pytest`（live 标记的真实网络测试默认跳过，需手动 `pytest -m live`）
+This repository demonstrates:
 
-### Real Harness Validation
+- **Engineering**: Python, PySide6 Desktop UI, asynchronous workers, provider
+  abstraction, local inference, structured state, tests, and selective Git
+  discipline.
+- **Scientific ML**: antibody sequence liabilities, PTM/CDR reasoning, public
+  experimental datasets, confounder analysis, Protein LM representation,
+  held-out evaluation, and explicit model limitations.
+- **AI / Agent**: literature evidence, structured provenance, fact boundaries,
+  and controlled LLM explanation with privacy constraints.
 
-- **30/30 PASS**（真实 DeepSeek + 真实 Europe PMC + 真实工具链）
-- 全部场景 `mock_fallback=False`；无虚构 PMID / DOI；无 irrelevant 文献引用；无用户位点冒充工具事实；无虚构序列；Markdown 清洗正常
-- 验证了：正常抗体分析、用户给定位点边界、PTM 边界、文献相关性、5 个真实突变（N55Q / D102E / S63A / M107L / M83L）、无序列输入保护、身份边界、综合审查
-
-### CI
-
-- `.github/workflows/ci.yml`：Python 3.10 / 3.11 / 3.12 矩阵 + 可选 torch/langchain 任务
-- 无需真实 API key（使用 CI 占位 key，测试内 mock 客户端）；不依赖本地 Windows 路径
+The project deliberately makes modest scientific claims. Human review and
+experimental confirmation remain required.

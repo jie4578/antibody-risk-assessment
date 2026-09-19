@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "antibody-risk"
-version = "0.1.0"
-description = "Antibody developability / chemical-liability risk analysis: rule engine + ML property prediction + RAG + Agent (AIDD playground)."
+version = "4.0.0"
+description = "Local-first antibody research decision-support workbench for liability screening, experimental-property estimates, evidence organization, and controlled AI explanation."
 readme = "README.md"
 requires-python = ">=3.8"
 license = { text = "MIT" }
@@ -24,9 +24,9 @@ dependencies = [
 
 [project.optional-dependencies]
 # 深度/树模型增强（可选）
-ml = ["lightgbm>=3.3"]
-# 深度学习 Transformer（可选，需 torch）
-dl = ["torch>=2.0"]
+ml = ["lightgbm>=3.3", "joblib>=1.3"]
+# ESM2 / Transformer 本地推理（可选，首次运行可能下载 Hugging Face 权重）
+dl = ["torch>=2.0", "transformers>=4.40", "huggingface-hub>=0.20", "joblib>=1.3"]
 # 向量检索（可选）
 vec = ["faiss-cpu>=1.7", "chromadb>=0.4"]
 # 可视化
@@ -35,8 +35,8 @@ viz = ["matplotlib>=3.5"]
 agent = ["langchain>=0.1", "langchain-openai>=0.1"]
 # Desktop Research Workbench（可选，不改变默认 Web/CLI 安装）
 desktop = ["PySide6>=6.5", "keyring>=24", "openai>=1.0"]
-# 全部
-all = ["lightgbm>=3.3", "faiss-cpu>=1.7", "chromadb>=0.4", "matplotlib>=3.5", "langchain>=0.1", "langchain-openai>=0.1", "PySide6>=6.5", "keyring>=24", "openai>=1.0"]
+# 全部可选能力（包含 ML/ESM2、RAG/Agent、Desktop）
+all = ["lightgbm>=3.3", "joblib>=1.3", "torch>=2.0", "transformers>=4.40", "huggingface-hub>=0.20", "faiss-cpu>=1.7", "chromadb>=0.4", "matplotlib>=3.5", "langchain>=0.1", "langchain-openai>=0.1", "PySide6>=6.5", "keyring>=24", "openai>=1.0"]
 # 开发/测试
 dev = ["pytest>=7.0", "pytest-cov", "matplotlib>=3.5"]
 

@@ -20,9 +20,17 @@ venv/
 ml/artifacts/
 artifacts/ml_models/
 *.joblib
+*.npz
 *.png
 ml/__pycache__/
 ml/**/__pycache__/
+
+# Hugging Face / ESM 本地缓存（如通过环境变量配置到仓库内）
+.huggingface/
+huggingface_cache/
+.cache/huggingface/
+model_cache/
+tmp_embeddings/
 
 # 端到端演示产物（可再生成）
 demo/
@@ -46,3 +54,8 @@ _v*.json
 
 # 本地辅助脚本
 run_utf8.bat
+
+# Desktop 批量导出的本地产物（示例输入 example_antibodies.csv 仍保留）
+antibody_batch_results.csv
+antibody_batch_results.xlsx
+antibody_batch_template.xlsx
