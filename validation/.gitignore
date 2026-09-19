@@ -4,6 +4,9 @@ data/features/*
 data/benchmark/*
 data/external_validation/*
 data/ml_benchmark/*
+*.npz
+model_cache/*
+tmp_embeddings/*
 reports/data_audit/*
 reports/jain_benchmark/*
 reports/aintibody_external/*
