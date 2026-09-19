@@ -18,6 +18,7 @@ venv/
 
 # ML 产物（模型 / 图片 / 缓存）
 ml/artifacts/
+artifacts/ml_models/
 *.joblib
 *.png
 ml/__pycache__/
