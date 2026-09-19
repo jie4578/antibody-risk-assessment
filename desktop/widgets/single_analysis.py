@@ -12,11 +12,12 @@ from scoring import compute_risk_score
 from desktop.literature_context import single_risk_context
 from desktop.ml_adapter import DesktopMLService, STATUS_READY, status_code, status_message
 from desktop.ml_metadata import BENCHMARK_ID, BENCHMARK_SCOPE, DEVELOPABILITY_MODEL_ID, ESM_MODEL_NAME, ESM_MODEL_REVISION, HIC_MODEL_ID, LIMITATION, LOCAL_INFERENCE_NOTICE, NO_CATEGORICAL_DECISION_NOTICE, RESEARCH_SUPPORT_NOTICE, evidence_text
+from desktop.research_summary import build_research_summary, render_research_summary
 from desktop.workers import Worker, sanitize_error
 
 
 class SingleAnalysisPage(QWidget):
-    def __init__(self, parent=None, open_mutation=None, open_literature=None, ml_service=None):
+    def __init__(self, parent=None, open_mutation=None, open_literature=None, ml_service=None, research_state_getter=None):
         super().__init__(parent)
         self._open_mutation = open_mutation
         self._open_literature = open_literature
@@ -28,6 +29,12 @@ class SingleAnalysisPage(QWidget):
         self._last_ml_status = {}
         self.ml_provenance = None
         self._analysis_ready = False
+        self._analysis_result = None
+        self._rule_score = None
+        self._ml_result = None
+        self._research_state_getter = research_state_getter
+        self._research_summary = None
+        self._literature_evidence = []
         self.antibody_id = QLineEdit()
         self.sequence = QPlainTextEdit()
         self.sequence.setPlaceholderText("粘贴 VH 或 VL 氨基酸序列")
@@ -50,6 +57,7 @@ class SingleAnalysisPage(QWidget):
         self.find_literature_button.clicked.connect(self.find_literature)
         self.ml_run_button.clicked.connect(self.run_ml_estimates)
         self.ml_details_button.clicked.connect(lambda: self.ml_details.setVisible(not self.ml_details.isVisible()))
+        self._build_summary_section()
         self.sequence.textChanged.connect(self._input_changed)
         self.vl_sequence.textChanged.connect(self._input_changed)
         form = QFormLayout(); form.addRow("Antibody ID", self.antibody_id); form.addRow("VH Sequence", self.sequence); form.addRow("VL Sequence", self.vl_sequence)
@@ -57,8 +65,70 @@ class SingleAnalysisPage(QWidget):
         summary = QFormLayout(); summary.addRow("Sequence length", self.length); summary.addRow("Risk Score", self.score); summary.addRow("Risk Level", self.level)
         self.table = QTableWidget(0, 4); self.table.setHorizontalHeaderLabels(["Position", "Motif", "Category", "Region"])
         self.table.itemSelectionChanged.connect(self._risk_selected)
-        layout = QVBoxLayout(self); layout.addLayout(form); layout.addLayout(buttons); layout.addWidget(self.message); layout.addLayout(summary); layout.addWidget(self.table); layout.addWidget(self.ml_section)
+        layout = QVBoxLayout(self); layout.addLayout(form); layout.addLayout(buttons); layout.addWidget(self.message); layout.addLayout(summary); layout.addWidget(self.table); layout.addWidget(self.ml_section); layout.addWidget(self.summary_section)
         self._update_ml_controls()
+
+    def _build_summary_section(self):
+        self.summary_section = QGroupBox("Research Decision Summary")
+        self.build_summary_button = QPushButton("Build Research Summary")
+        self.summary_status = QLabel("Summary is created only by explicit user action.")
+        self.summary_status.setWordWrap(True)
+        self.summary_view = QPlainTextEdit()
+        self.summary_view.setReadOnly(True)
+        self.summary_view.setVisible(False)
+        self.build_summary_button.clicked.connect(self.build_research_summary)
+        layout = QVBoxLayout(self.summary_section)
+        layout.addWidget(QLabel("Deterministic evidence aggregation for human review; no LLM or network request."))
+        layout.addWidget(self.summary_status)
+        layout.addWidget(self.build_summary_button)
+        layout.addWidget(self.summary_view)
+
+    def _mark_summary_stale(self):
+        if self._research_summary is not None:
+            self._research_summary = self._research_summary.mark_stale()
+            self.summary_status.setText("Outdated — evidence has changed. Rebuild Summary.")
+
+    def _research_summary_state(self):
+        external = self._research_state_getter() if callable(self._research_state_getter) else {}
+        if not isinstance(external, dict):
+            external = {}
+        return {
+            "antibody_id": self.antibody_id.text(),
+            "sequence_analysis": {
+                "antibody_id": self.antibody_id.text(),
+                "vh": self.sequence.toPlainText(),
+                "vl": self.vl_sequence.toPlainText(),
+                "analysis": self._analysis_result,
+                "risk_score": self._rule_score,
+                "sequence_length": getattr(self._analysis_result, "sequence_length", None),
+            },
+            "ml_estimates": self._ml_result,
+            "mutation_analysis": external.get("mutation_analysis"),
+            "mutation_ml": external.get("mutation_ml"),
+            "literature_evidence": list(self._literature_evidence) + list(external.get("literature_evidence", []) or []),
+            "provenance": external.get("provenance", {}),
+        }
+
+    def build_research_summary(self):
+        self._research_summary = build_research_summary(self._research_summary_state())
+        self.summary_view.setPlainText(render_research_summary(self._research_summary))
+        self.summary_view.setVisible(True)
+        self.summary_status.setText("Summary built from the current evidence snapshot.")
+        return self._research_summary
+
+    def attach_literature_evidence(self, evidence):
+        if evidence is not None:
+            self._literature_evidence = [evidence]
+            self._mark_summary_stale()
+
+    def notify_external_evidence_changed(self):
+        """Mark the snapshot stale when Mutation/Literature state changes elsewhere."""
+
+        self._mark_summary_stale()
+
+    @property
+    def research_summary(self):
+        return self._research_summary
 
     def _build_ml_section(self):
         self.ml_section = QGroupBox("Experimental ML Estimates")
@@ -113,7 +183,11 @@ class SingleAnalysisPage(QWidget):
         return normalize_sequence(self.sequence.toPlainText()), normalize_sequence(self.vl_sequence.toPlainText())
 
     def _input_changed(self):
+        self._mark_summary_stale()
         self._analysis_ready = False
+        self._analysis_result = None
+        self._rule_score = None
+        self._ml_result = None
         self._ml_generation += 1
         self._ml_snapshot = None
         self._clear_ml_output()
@@ -150,7 +224,11 @@ class SingleAnalysisPage(QWidget):
             self.ml_status.setText(self._ml_requirement_message())
 
     def analyze(self):
+        self._mark_summary_stale()
         self._analysis_ready = False
+        self._analysis_result = None
+        self._rule_score = None
+        self._ml_result = None
         self._ml_generation += 1
         self._ml_snapshot = None
         self._clear_ml_output()
@@ -159,6 +237,8 @@ class SingleAnalysisPage(QWidget):
         if result.errors:
             self.score.setText("-"); self.level.setText("-"); self.message.setText("错误：" + "; ".join(result.errors)); self.send_mutation_button.setEnabled(False); self._update_ml_controls(); return
         risk = compute_risk_score([(self.antibody_id.text() or "sequence", result)])
+        self._analysis_result = result
+        self._rule_score = risk
         self.score.setText(f"{risk.overall_score:.2f}"); self.level.setText(risk.risk_level); self.message.setText(""); self.send_mutation_button.setEnabled(bool(self._open_mutation and result.sequence))
         for item in result.risks:
             row = self.table.rowCount(); self.table.insertRow(row)
@@ -238,6 +318,8 @@ class SingleAnalysisPage(QWidget):
                 "vl_sha256_prefix": self._short_sequence_hash(snapshot[1]),
                 "device": self._last_ml_status.get("device", "unknown"),
             }
+            self._ml_result = {"result": result, "provenance": dict(self.ml_provenance)}
+            self._mark_summary_stale()
             self.ml_details.setPlainText(
                 "HIC model: ESM2 + Ridge\n"
                 f"HIC model ID: {self.ml_provenance['hic_model_id']} ({self.ml_provenance['hic_model_version']})\n"
@@ -298,8 +380,10 @@ class SingleAnalysisPage(QWidget):
         self.analyze()
 
     def clear(self):
+        self._mark_summary_stale()
         self.antibody_id.clear(); self.sequence.clear(); self.vl_sequence.clear(); self.length.setText("-"); self.score.setText("-"); self.level.setText("-"); self.message.clear(); self.table.setRowCount(0); self.send_mutation_button.setEnabled(False); self.find_literature_button.setEnabled(False)
         self._analysis_ready = False
+        self._analysis_result = None; self._rule_score = None; self._ml_result = None
         self._clear_ml_output()
         self._update_ml_controls()
 

@@ -17,9 +17,10 @@ class MutationPage(QWidget):
     RISK_COLUMNS = ["Chain", "Position", "Motif", "Category", "Region"]
     CANDIDATE_COLUMNS = ["Mutation", "Chain", "Original Score", "Mutant Score", "ΔScore", "Removed Sites", "Added Sites"]
 
-    def __init__(self, parent=None, open_literature=None, ml_service=None):
+    def __init__(self, parent=None, open_literature=None, ml_service=None, on_state_changed=None):
         super().__init__(parent)
-        self.pool = QThreadPool.globalInstance(); self._worker = None; self._ml_worker = None; self._comparison = None; self._selected_candidate = None; self._candidates = []; self._open_literature = open_literature; self._ml_service = ml_service or DesktopMLService(); self._ml_generation = 0; self._ml_snapshot = None; self.ml_provenance = None; self._last_ml_status = {}
+        self._on_state_changed = on_state_changed
+        self.pool = QThreadPool.globalInstance(); self._worker = None; self._ml_worker = None; self._comparison = None; self._ml_comparison = None; self._selected_candidate = None; self._candidates = []; self._open_literature = open_literature; self._ml_service = ml_service or DesktopMLService(); self._ml_generation = 0; self._ml_snapshot = None; self.ml_provenance = None; self._last_ml_status = {}
         self.antibody_id = QLineEdit(); self.chain = QComboBox(); self.chain.addItems(["VH", "VL", "Unspecified"])
         self.sequence = QPlainTextEdit(); self.sequence.setPlaceholderText("Paste VH sequence"); self.vh_sequence = self.sequence; self.vl_sequence = QPlainTextEdit(); self.vl_sequence.setPlaceholderText("Paste VL sequence (required for ML comparison)")
         self.mutation = QLineEdit(); self.mutation.setPlaceholderText("N55Q")
@@ -85,8 +86,12 @@ class MutationPage(QWidget):
         self._ml_generation += 1
         self._ml_snapshot = None
         self._reset_ml_result()
+        if callable(self._on_state_changed):
+            self._on_state_changed()
 
     def _reset_ml_result(self):
+        self._ml_comparison = None
+        self.ml_provenance = None
         for label in (self.ml_hic_baseline, self.ml_hic_mutant, self.ml_hic_delta, self.ml_probability_baseline, self.ml_probability_mutant, self.ml_probability_delta):
             label.setText("-")
         self.ml_warning.setVisible(False)
@@ -191,6 +196,15 @@ class MutationPage(QWidget):
         self.ml_status.setText("ML comparison failed. Existing rule-based mutation results are preserved.")
         self.ml_details.setPlainText(sanitize_error(message)); self.ml_details_button.setEnabled(True); self.ml_run_button.setEnabled(True)
 
+    def get_research_summary_state(self):
+        """Expose existing mutation evidence without running any calculation."""
+
+        return {
+            "mutation_analysis": self._selected_candidate or self._comparison,
+            "mutation_ml": self._ml_comparison,
+            "provenance": dict(self.ml_provenance or {}),
+        }
+
     def _risk_table(self):
         table = QTableWidget(0, len(self.RISK_COLUMNS)); table.setHorizontalHeaderLabels(self.RISK_COLUMNS); return table
 
@@ -232,7 +246,7 @@ class MutationPage(QWidget):
         self._worker = None; self._comparison = result; self._selected_candidate = None; self.simulate_button.setEnabled(True); self._render(result); self.add_candidate_button.setEnabled(True); self._reset_ml_result()
 
     def _error(self, message):
-        self._worker = None; self.simulate_button.setEnabled(True); self._comparison = None; self.add_candidate_button.setEnabled(False); self.message.setText(sanitize_error(message))
+        self._worker = None; self.simulate_button.setEnabled(True); self._comparison = None; self._ml_comparison = None; self.add_candidate_button.setEnabled(False); self.message.setText(sanitize_error(message))
 
     def _render(self, result):
         self.original_summary.setText(f"Length: {len(result.original_sequence)} | Calculated Score: {result.original_score:.2f} | Risk Level: {result.original_level} | Total Sites: {result.original_total_sites} | CDR Sites: {result.original_cdr_sites}")

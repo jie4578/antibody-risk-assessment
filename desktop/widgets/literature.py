@@ -21,7 +21,7 @@ class LiteraturePage(QWidget):
         super().__init__(parent)
         self.pool = QThreadPool.globalInstance()
         self._worker = None
-        self._results = []; self._context = None
+        self._results = []; self._context = None; self._summary_changed_callback = None
         self.query = QLineEdit(); self.query.setPlaceholderText("antibody deamidation NG motif CDR")
         self.source = QComboBox(); self.source.addItem("Auto", "auto"); self.source.addItem("Europe PMC", "europepmc"); self.source.addItem("PubMed", "pubmed")
         self.max_results = QSpinBox(); self.max_results.setRange(1, 50); self.max_results.setValue(10)
@@ -103,9 +103,14 @@ class LiteraturePage(QWidget):
         if not isinstance(result, DesktopEvidence):
             return
         self.title.setText(result.title or "-"); self.authors.setText(", ".join(result.authors) or "-"); self.journal.setText(f"{result.journal or '-'} / {result.year or '-'}"); self.pmid.setText(result.pmid or "-"); self.doi.setText(result.doi or "-"); self.pmcid.setText(result.pmcid or "-"); self.source_label.setText(result.source or "-"); self.relevance.setText(result.relevance or "-"); self.abstract.setText(result.abstract or "-"); self.explanation.setText(result.relevance_reason or "-"); self.open_source_button.setEnabled(bool(result.source_url)); self.send_evidence_button.setEnabled(True); self._selected = result
+        if callable(self._summary_changed_callback):
+            self._summary_changed_callback()
 
     def set_open_ai(self, callback):
         self._open_ai = callback
+
+    def set_summary_changed_callback(self, callback):
+        self._summary_changed_callback = callback
 
     def send_evidence(self):
         result = getattr(self, "_selected", None)
