@@ -10,4 +10,5 @@ tmp_embeddings/*
 reports/data_audit/*
 reports/jain_benchmark/*
 reports/aintibody_external/*
+reports/ml_benchmark/*
 !data/raw/source_manifest.json
