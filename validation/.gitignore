@@ -3,6 +3,7 @@ data/processed/*
 data/features/*
 data/benchmark/*
 data/external_validation/*
+data/ml_benchmark/*
 reports/data_audit/*
 reports/jain_benchmark/*
 reports/aintibody_external/*
