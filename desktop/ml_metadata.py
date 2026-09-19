@@ -7,6 +7,7 @@ DEVELOPABILITY_MODEL_ID = "developability_esm2_v1"
 ESM_MODEL_NAME = "facebook/esm2_t30_150M_UR50D"
 ESM_MODEL_REVISION = "a695f6045e2e32885fa60af20c13cb35398ce30c"
 BENCHMARK_ID = "AINTIBODY_INTERNAL_ENTITY_EXACT_V1"
+MODEL_MANIFEST_ID = "7826881c04887d274f73e737caf35d83e7b62dd2"
 BENCHMARK_SCOPE = "internal AIntibody sequence landscape"
 LIMITATION = (
     "84/95 held-out TEST sequences had paired-min identity >=0.90 to training data. "

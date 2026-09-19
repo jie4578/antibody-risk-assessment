@@ -103,3 +103,13 @@ provider API or automatically transfer results to Literature or AI Assistant.
 The page shows the numeric HIC estimate and the numeric probability of the
 frozen `NOT_DEVELOPABLE` class with the benchmark scope and limitations. It
 does not convert the probability into a categorical decision.
+
+## Mutation comparison
+
+The Mutation Workspace can explicitly run the same frozen models on a valid
+baseline VH/VL pair and one user-defined mutant pair. The displayed deltas
+are arithmetic differences between model outputs; they are not validated
+experimental mutation-effect measurements. Mutation-level predictive validity
+has not been independently established, and the feature generates no better/
+worse label, recommendation, ranking, or combined rule/ML score. Experimental
+testing remains required.
