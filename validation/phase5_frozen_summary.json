@@ -1,0 +1,123 @@
+{
+  "benchmark": "AINTIBODY_INTERNAL_ENTITY_EXACT_V1",
+  "phase5c_commit": "83ec67429640fcdeb142f6dc52711a51a834eda1",
+  "test_label_sha256": "36e802f6c3d615b5f636bb1186c03e24421b2e3b004f0e7e249ace4b3673fca3",
+  "test_evaluation_number": 1,
+  "test_population": {
+    "train_validation_n": 381,
+    "test_n": 95,
+    "developable_n": 63,
+    "not_developable_n": 32,
+    "positive_prevalence": 0.3368421052631579
+  },
+  "bootstrap": {
+    "resamples": 2000,
+    "seed": 20260919,
+    "confidence_level": 0.95,
+    "valid_n": 2000
+  },
+  "model_definitions": {
+    "continuous": "StandardScaler + Ridge",
+    "classification": "StandardScaler + LogisticRegression",
+    "feature_blocks": {
+      "LENGTH_CONTROL": 2,
+      "RULE48": 48,
+      "ESM2": 1280,
+      "ESM2_PLUS_RULE48": 1328
+    },
+    "preprocessing_fit_population": "TRAIN+VALIDATION only",
+    "test_rows_filtered": false,
+    "test_driven_iteration": false,
+    "threshold_optimization": false,
+    "esm_fine_tuning": false
+  },
+  "selected_hyperparameters": {
+    "continuous": {
+      "Tm|LENGTH_CONTROL": 100.0,
+      "Tm|RULE48": 0.1,
+      "Tm|ESM2": 100.0,
+      "Tm|ESM2_PLUS_RULE48": 100.0,
+      "Tagg|LENGTH_CONTROL": 100.0,
+      "Tagg|RULE48": 1.0,
+      "Tagg|ESM2": 100.0,
+      "Tagg|ESM2_PLUS_RULE48": 100.0,
+      "HIC|LENGTH_CONTROL": 100.0,
+      "HIC|RULE48": 10.0,
+      "HIC|ESM2": 100.0,
+      "HIC|ESM2_PLUS_RULE48": 100.0,
+      "BVP|LENGTH_CONTROL": 100.0,
+      "BVP|RULE48": 100.0,
+      "BVP|ESM2": 10.0,
+      "BVP|ESM2_PLUS_RULE48": 1.0,
+      "AC-SINS|LENGTH_CONTROL": 100.0,
+      "AC-SINS|RULE48": 100.0,
+      "AC-SINS|ESM2": 100.0,
+      "AC-SINS|ESM2_PLUS_RULE48": 100.0
+    },
+    "classification": {
+      "LENGTH_CONTROL": 0.01,
+      "RULE48": 10.0,
+      "ESM2": 1.0,
+      "ESM2_PLUS_RULE48": 10.0
+    }
+  },
+  "continuous_results": [
+    {"endpoint":"Tm","feature_block":"LENGTH_CONTROL","alpha":100.0,"validation_spearman":0.15088790647133607,"test_spearman":0.11761267155073814,"test_spearman_ci":[-0.07175110278891007,0.30170738469082864],"test_mae":0.85283749823476,"test_rmse":1.145986299223371,"test_r2":-0.056911031232808273,"test_n":94},
+    {"endpoint":"Tm","feature_block":"RULE48","alpha":0.1,"validation_spearman":0.039727818594800346,"test_spearman":0.24493263952309066,"test_spearman_ci":[0.045585158934247354,0.4182455145393974],"test_mae":0.8772067604063967,"test_rmse":1.1529646224174477,"test_r2":-0.06982204544770587,"test_n":94},
+    {"endpoint":"Tm","feature_block":"ESM2","alpha":100.0,"validation_spearman":0.020447151742253263,"test_spearman":0.1275513175547327,"test_spearman_ci":[-0.09569517437587743,0.33289140671989936],"test_mae":2.647114976923517,"test_rmse":3.7320913079697515,"test_r2":-10.209444751471704,"test_n":94},
+    {"endpoint":"Tm","feature_block":"ESM2_PLUS_RULE48","alpha":100.0,"validation_spearman":0.031603535630818455,"test_spearman":0.13509090521183592,"test_spearman_ci":[-0.0945644419534979,0.3341160025997821],"test_mae":2.6438063582355715,"test_rmse":3.7860009057344723,"test_r2":-10.535621740599204,"test_n":94},
+    {"endpoint":"Tagg","feature_block":"LENGTH_CONTROL","alpha":100.0,"validation_spearman":-0.3162852332031339,"test_spearman":-0.05756491774836139,"test_spearman_ci":[-0.22480224677938118,0.1270931631648505],"test_mae":3.2166450578556516,"test_rmse":3.978632743093101,"test_r2":-0.05309621748027249,"test_n":94},
+    {"endpoint":"Tagg","feature_block":"RULE48","alpha":1.0,"validation_spearman":0.40567853771355267,"test_spearman":0.06966760864839257,"test_spearman_ci":[-0.13155245935399337,0.26609890946702436],"test_mae":3.4284681920544866,"test_rmse":4.3599117377637295,"test_r2":-0.2646074703035255,"test_n":94},
+    {"endpoint":"Tagg","feature_block":"ESM2","alpha":100.0,"validation_spearman":0.27849376132448556,"test_spearman":0.3667909315627392,"test_spearman_ci":[0.17906416117724536,0.528861399644993],"test_mae":3.7145558166503903,"test_rmse":5.293676135279518,"test_r2":-0.8642969268120393,"test_n":94},
+    {"endpoint":"Tagg","feature_block":"ESM2_PLUS_RULE48","alpha":100.0,"validation_spearman":0.2876102728792277,"test_spearman":0.34827401853322704,"test_spearman_ci":[0.15695142223916894,0.5218541215575639],"test_mae":3.766756414216029,"test_rmse":5.453623257595957,"test_r2":-0.9786574480894252,"test_n":94},
+    {"endpoint":"HIC","feature_block":"LENGTH_CONTROL","alpha":100.0,"validation_spearman":0.4436446525328484,"test_spearman":0.36279827107458706,"test_spearman_ci":[0.116826112717371,0.5563734669818002],"test_mae":1.550798502603207,"test_rmse":1.8618289306829325,"test_r2":0.11087117434779115,"test_n":72},
+    {"endpoint":"HIC","feature_block":"RULE48","alpha":10.0,"validation_spearman":0.5332784249924232,"test_spearman":0.6599684593597729,"test_spearman_ci":[0.4916833441826959,0.776396308698887],"test_mae":1.2546885747394123,"test_rmse":1.4965357360833256,"test_r2":0.42554061989174985,"test_n":72},
+    {"endpoint":"HIC","feature_block":"ESM2","alpha":100.0,"validation_spearman":0.7603371236037764,"test_spearman":0.834661686548875,"test_spearman_ci":[0.7225272601449989,0.9068470906760648],"test_mae":0.8706094053056505,"test_rmse":1.207784747944748,"test_r2":0.6258340842242178,"test_n":72},
+    {"endpoint":"HIC","feature_block":"ESM2_PLUS_RULE48","alpha":100.0,"validation_spearman":0.7572799698800823,"test_spearman":0.8301741716519305,"test_spearman_ci":[0.717524847023499,0.9032961073861813],"test_mae":0.8994223883264202,"test_rmse":1.2458371413787501,"test_r2":0.6018857805107405,"test_n":72},
+    {"endpoint":"BVP","feature_block":"LENGTH_CONTROL","alpha":100.0,"validation_spearman":0.06258171513358261,"test_spearman":0.05354844683981201,"test_spearman_ci":[-0.15017695340746426,0.24629515216375347],"test_mae":5.538144849623062,"test_rmse":8.462512238037922,"test_r2":-0.04205856331038671,"test_n":95},
+    {"endpoint":"BVP","feature_block":"RULE48","alpha":100.0,"validation_spearman":-0.03807176743035063,"test_spearman":0.16220659461185333,"test_spearman_ci":[-0.03570709236036135,0.35456980304159325],"test_mae":5.46405799153901,"test_rmse":8.491952016160575,"test_r2":-0.04932149753232817,"test_n":95},
+    {"endpoint":"BVP","feature_block":"ESM2","alpha":10.0,"validation_spearman":0.2330319657674718,"test_spearman":0.2706196480267411,"test_spearman_ci":[0.06452368388204738,0.4617390095464683],"test_mae":7.001432900278192,"test_rmse":10.156202328646167,"test_r2":-0.5009153378354214,"test_n":95},
+    {"endpoint":"BVP","feature_block":"ESM2_PLUS_RULE48","alpha":1.0,"validation_spearman":0.20481012486990932,"test_spearman":0.2501968441954156,"test_spearman_ci":[0.03958594986787124,0.442253015849333],"test_mae":9.550001867192156,"test_rmse":14.464930863175496,"test_r2":-2.0445718795176284,"test_n":95},
+    {"endpoint":"AC-SINS","feature_block":"LENGTH_CONTROL","alpha":100.0,"validation_spearman":0.09868560510761089,"test_spearman":0.11175678740759712,"test_spearman_ci":[-0.08572955188106059,0.31766483398463013],"test_mae":3.1477467631027474,"test_rmse":4.671001373895321,"test_r2":-0.09030981022247198,"test_n":95},
+    {"endpoint":"AC-SINS","feature_block":"RULE48","alpha":100.0,"validation_spearman":0.14667582683954472,"test_spearman":0.35705361338254543,"test_spearman_ci":[0.14590678167722507,0.5322812291978195],"test_mae":2.9647358911149886,"test_rmse":4.478900834687923,"test_r2":-0.002473321584873789,"test_n":95},
+    {"endpoint":"AC-SINS","feature_block":"ESM2","alpha":100.0,"validation_spearman":0.438703351263102,"test_spearman":0.6601794153994607,"test_spearman_ci":[0.5208937485951862,0.7674337392089611],"test_mae":2.7472692607578484,"test_rmse":3.7435159352925,"test_r2":0.2996916542155108,"test_n":95},
+    {"endpoint":"AC-SINS","feature_block":"ESM2_PLUS_RULE48","alpha":100.0,"validation_spearman":0.4245093686628181,"test_spearman":0.6631628181911075,"test_spearman_ci":[0.5246564972632161,0.7712645601946401],"test_mae":2.7737884617768174,"test_rmse":3.761132984715037,"test_r2":0.2930848188869499,"test_n":95}
+  ],
+  "classification_results": [
+    {"feature_block":"LENGTH_CONTROL","C":0.01,"validation_pr_auc":0.2779583197005271,"test_pr_auc":0.34367299529294526,"test_pr_auc_ci":[0.3006976466173629,0.4103895040635562],"validation_roc_auc":0.6016584766584767,"test_roc_auc":0.46651785714285715,"test_roc_auc_ci":[0.3618365575396826,0.5830853174603174],"test_prevalence":0.3368421052631579,"test_n":95},
+    {"feature_block":"RULE48","C":10.0,"validation_pr_auc":0.4878669802765467,"test_pr_auc":0.3781451046249043,"test_pr_auc_ci":[0.31257429826605515,0.5160650292960742],"validation_roc_auc":0.7788697788697788,"test_roc_auc":0.5466269841269842,"test_roc_auc_ci":[0.4203497023809524,0.6728918650793649],"test_prevalence":0.3368421052631579,"test_n":95},
+    {"feature_block":"ESM2","C":1.0,"validation_pr_auc":0.3889586714611249,"test_pr_auc":0.6116653767452644,"test_pr_auc_ci":[0.4928232188428797,0.7374185006075126],"validation_roc_auc":0.7205159705159705,"test_roc_auc":0.691468253968254,"test_roc_auc_ci":[0.5783606150793651,0.7922123015873013],"test_prevalence":0.3368421052631579,"test_n":95},
+    {"feature_block":"ESM2_PLUS_RULE48","C":10.0,"validation_pr_auc":0.4173502067443188,"test_pr_auc":0.5977076948841276,"test_pr_auc_ci":[0.479016354323156,0.7250644256757685],"validation_roc_auc":0.7156019656019657,"test_roc_auc":0.6820436507936508,"test_roc_auc_ci":[0.5709325396825398,0.786235119047619],"test_prevalence":0.3368421052631579,"test_n":95}
+  ],
+  "novelty_audit": {
+    "paired_min_ge_0.90": {"n": 84, "fraction": 0.8842105263157894},
+    "paired_min_ge_0.95": {"n": 49, "fraction": 0.5157894736842106},
+    "paired_min_ge_0.98": {"n": 21, "fraction": 0.22105263157894736},
+    "bins": {"0.80-<0.90": 11, "0.90-<0.95": 35, "0.95-<1.00": 49, "<0.80": 0}
+  },
+  "key_limitations": [
+    "This is an internal duplicate/entity-controlled benchmark, not family-independent generalization.",
+    "The TEST set has high residual similarity to TRAIN.",
+    "Missing assay values produce endpoint-specific TEST N values.",
+    "No causal, clinical utility, wet-lab replacement, affinity, or therapeutic efficacy claim is supported.",
+    "The TEST set has been observed and cannot serve as a new unbiased final test for future development."
+  ],
+  "supported_claims": [
+    "ESM2 representations capture experimentally relevant sequence signal for selected developability assays within the AIntibody sequence landscape.",
+    "HIC shows particularly strong held-out association.",
+    "Frozen rule features retain meaningful assay-specific signal, particularly for HIC.",
+    "Protein language-model representations outperform simple handcrafted rules on some endpoints but not uniformly.",
+    "Internal composite classification benefits from ESM2 representation."
+  ],
+  "prohibited_claims": [
+    "universal antibody developability prediction",
+    "family-independent generalization",
+    "clinical utility",
+    "causal interpretation",
+    "replacement of wet-lab assays",
+    "therapeutic efficacy prediction",
+    "affinity prediction from this benchmark",
+    "automatic best-antibody selection",
+    "validated production-grade predictor"
+  ]
+}

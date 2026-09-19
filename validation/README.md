@@ -39,3 +39,12 @@ fewer or lower rule penalties. `rule_penalty` is the validation-only derived
 field `100 - calculated_score`. No paired antibody score is invented. Assay
 values are not read for feature decisions, and repeated AIntibody sequence
 records remain separate rows.
+
+## Phase 5 frozen protein benchmark
+
+The Phase 5D TEST evaluation was opened exactly once under the frozen
+Phase 5C configuration. The aggregate scientific summary is tracked in
+[`PHASE5_ML_BENCHMARK_SUMMARY.md`](PHASE5_ML_BENCHMARK_SUMMARY.md), with the
+machine-readable counterpart in `phase5_frozen_summary.json` and the
+immutability marker in `PHASE5_TEST_EVALUATED.md`. Raw labels, predictions,
+embeddings, and generated benchmark tables remain excluded from Git.
