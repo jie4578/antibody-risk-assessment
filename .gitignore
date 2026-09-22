@@ -22,6 +22,8 @@ artifacts/ml_models/
 *.joblib
 *.npz
 *.png
+# Tracked public v4 workflow screenshots
+!docs/images/v4/*.png
 ml/__pycache__/
 ml/**/__pycache__/
 

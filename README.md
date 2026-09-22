@@ -8,6 +8,8 @@ hypothesis comparison, literature evidence, structured research summaries,
 and controlled AI explanation. It is decision support for human and wet-lab
 review, not an autonomous scientific decision-maker.
 
+![Single sequence liability analysis](docs/images/v4/01-single-analysis.png)
+
 ## What it does
 
 - **Single Analysis**: paired VH/VL sequence validation, CDR/framework-aware
@@ -122,6 +124,29 @@ Human / Experimental Decision
 
 Batch Analysis is a parallel screening workflow for many antibody records;
 its outputs do not silently become evidence for another open analysis.
+
+## Desktop Workflow / Screenshots
+
+The public captures below use synthetic/reference demo data and show real
+Desktop workflows. They are documentation assets, not scientific claims.
+
+<table>
+<tr>
+<td><a href="docs/images/v4/01-single-analysis.png"><img src="docs/images/v4/01-single-analysis.png" alt="Single sequence liability analysis" width="360"></a><br>Single sequence liability analysis</td>
+<td><a href="docs/images/v4/05-experimental-ml-estimates.png"><img src="docs/images/v4/05-experimental-ml-estimates.png" alt="Local experimental ML estimates" width="360"></a><br>Local experimental ML estimates</td>
+</tr>
+<tr>
+<td><a href="docs/images/v4/06-mutation-ml-comparison.png"><img src="docs/images/v4/06-mutation-ml-comparison.png" alt="Mutation hypothesis comparison" width="360"></a><br>Mutation hypothesis comparison</td>
+<td><a href="docs/images/v4/07-research-decision-summary.png"><img src="docs/images/v4/07-research-decision-summary.png" alt="Deterministic Research Decision Summary" width="360"></a><br>Deterministic Research Decision Summary</td>
+</tr>
+<tr>
+<td><a href="docs/images/v4/08-ai-research-copilot.png"><img src="docs/images/v4/08-ai-research-copilot.png" alt="Controlled AI Research Copilot" width="360"></a><br>Controlled AI Research Copilot — built-in Mock provider used for deterministic public demo</td>
+</tr>
+</table>
+
+The complete public workflow set is listed in the
+[`v4.0 Demo Walkthrough`](docs/V4_DEMO_WALKTHROUGH.md), including Batch
+Analysis and Literature Evidence.
 
 ## Production architecture
 

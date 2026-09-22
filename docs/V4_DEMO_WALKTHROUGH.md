@@ -50,18 +50,20 @@ Mutation ML deltas are arithmetic differences between two antibody-level
 model outputs. They are not independently validated single-mutation effect
 sizes.
 
-## Screenshot checklist
+## Public screenshots
 
-**PUBLIC SCREENSHOTS PENDING**
+**PUBLIC SCREENSHOTS COMPLETE**
 
-Capture only synthetic/reference data and redact any local paths or provider
-identifiers. The later public set should cover:
+These captures use public-safe Synthetic/Reference Demo data and represent
+real application workflows. No benchmark TEST data are exposed. Screenshot
+08 uses the built-in Mock provider for a deterministic, credential-free public
+demo.
 
-1. Single Analysis
-2. Batch Analysis
-3. Mutation Workspace
-4. Literature Evidence
-5. Experimental ML Estimates
-6. Mutation ML Comparison
-7. Research Decision Summary
-8. AI Research Copilot
+1. [Single sequence liability analysis](images/v4/01-single-analysis.png)
+2. [Batch analysis](images/v4/02-batch-analysis.png)
+3. [Mutation workspace](images/v4/03-mutation-workspace.png)
+4. [Literature evidence](images/v4/04-literature-evidence.png)
+5. [Local experimental ML estimates](images/v4/05-experimental-ml-estimates.png)
+6. [Mutation ML comparison](images/v4/06-mutation-ml-comparison.png)
+7. [Deterministic Research Decision Summary](images/v4/07-research-decision-summary.png)
+8. [Controlled AI Research Copilot](images/v4/08-ai-research-copilot.png)
