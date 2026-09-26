@@ -1,0 +1,67 @@
+{
+  "status": "OBSERVED_ONE_TIME_EXTERNAL_EVALUATION",
+  "dataset": "GDPa3",
+  "endpoint": "hic_rt_avg",
+  "unit": "minutes",
+  "n": 79,
+  "prediction_artifact_sha256": "9ffecbb2621b9760494f72ae94cb04a002a317cc75524785fc5a5efef645193f",
+  "raw_workbook_sha256": "06daa55cb609278574d008c5509d90a63f9a8f1aa3949f34fc50a2e654b008f7",
+  "sequence_snapshot_sha256": "5c41700df82dce43b8d379afbf054228818bf868f0ae4b89fa9270e8d1daf3e7",
+  "model_id": "hic_esm2_v1",
+  "model_version": "phase5-frozen-v1",
+  "model_artifact_sha256": "b6b05c0f5e45bf2b53ef5878bef8f248c3a7ce50ee7b78e5f8cd09044ca309b4",
+  "phase8b_seal_commit": "025f3d44c87a614e47a681713d32707b47e92b6e",
+  "phase8c_evaluator_code_commit": "9caa5a101d679251a29225e69a0ff187b39b6d0a",
+  "join_integrity": {
+    "matched_rows": 79,
+    "prediction_only_rows": 0,
+    "label_only_rows": 0,
+    "hash_mismatches": 0
+  },
+  "primary": {
+    "metric": "Spearman rho",
+    "estimate": 0.23190081863356382,
+    "n": 79
+  },
+  "bootstrap": {
+    "resamples": 2000,
+    "seed": 20260926,
+    "bit_generator": "PCG64",
+    "valid_n": 2000,
+    "degenerate_n": 0,
+    "confidence_level": 0.95,
+    "method": "percentile",
+    "ci": [
+      0.0054175577212944165,
+      0.4375911455240819
+    ]
+  },
+  "secondary": {
+    "pearson_r": {
+      "estimate": 0.18717461417660938,
+      "n": 79
+    },
+    "kendall_tau_b": {
+      "estimate": 0.15357130480012932,
+      "n": 79
+    }
+  },
+  "similarity_bins": {
+    "counts": {
+      "<0.70": 71,
+      "0.70–<0.80": 7,
+      "0.80–<0.90": 1,
+      ">=0.90": 0
+    },
+    "n": 79
+  },
+  "cross_source_cross_protocol": true,
+  "model_trained": false,
+  "model_tuned": false,
+  "post_hoc_filtering": false,
+  "absolute_error_metrics": "NOT_CALCULATED",
+  "other_gdpa3_endpoints_analyzed": false,
+  "composite_classifier_evaluated": false,
+  "aintibody_test_labels_accessed": false,
+  "timestamp_utc": "2026-09-26T08:51:13Z"
+}
