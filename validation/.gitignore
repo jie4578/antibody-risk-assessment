@@ -4,6 +4,7 @@ data/features/*
 data/benchmark/*
 data/external_validation/*
 data/ml_benchmark/*
+data/external_developability/gdpa3_phase8a/
 *.npz
 model_cache/*
 tmp_embeddings/*

@@ -1,0 +1,23 @@
+{
+  "manifest_version": 1,
+  "purpose": "Phase 7A external family-diverse validation foundation",
+  "files": [
+    {
+      "dataset": "SAbDab2",
+      "source_url": "https://sabdab.opig.stats.ox.ac.uk/api/download/all-summary",
+      "publication": "Capel et al. (2026), SAbDab2: The structural antibody database in the age of machine learning, bioRxiv 2026.06.16.732554, DOI: 10.64898/2026.06.16.732554; foundational SAbDab publication: Dunbar et al. (2014), Nucleic Acids Research, DOI: 10.1093/nar/gkt1043",
+      "accessibility_note": "Public official OPIG download endpoint. The inspected source page does not state a simple redistribution license; the raw third-party file remains local and is not committed by this phase.",
+      "license_or_accessibility": "Public access through the official OPIG endpoint; no simple redistribution license was confirmed from the inspected source page. Raw file is therefore local-only for this phase.",
+      "acquisition_date": "2026-09-25",
+      "sha256": "7f992a3ffd7ec33a4b44a9d505fc7a9e0f9fd3d320a2a15ab9ae14bd6dba219f",
+      "file_size_bytes": 17309136,
+      "file_format": "csv",
+      "local_raw_path": "data/raw/sabdab2_all_summary.csv",
+      "source_filename": "sabdab2_all_summary.csv",
+      "supplementary_dataset": null,
+      "sequence_availability": "Official summary provides VH and VL fields; some structure instances are single-chain or incomplete.",
+      "vh_vl_availability": "VH and VL are both present in 17486 of 22287 source records.",
+      "experimental_label_availability": "MISSING for the requested developability panel; structural experimental metadata such as method and resolution is present."
+    }
+  ]
+}

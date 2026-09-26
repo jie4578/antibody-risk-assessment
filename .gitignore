@@ -54,6 +54,9 @@ literature_cache/
 _v*.json
 *_retest.json
 
+# Local third-party external-developability raw data
+validation/external_developability/raw/
+
 # 本地辅助脚本
 run_utf8.bat
 

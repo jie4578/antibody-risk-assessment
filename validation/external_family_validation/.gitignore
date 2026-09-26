@@ -1,0 +1,6 @@
+data/raw/*
+data/processed/*
+reports/*
+*.pyc
+__pycache__/
+!source_manifest.json

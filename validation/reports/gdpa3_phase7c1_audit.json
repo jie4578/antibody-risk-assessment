@@ -1,0 +1,591 @@
+{
+  "sequence_comparison": {
+    "AIntibody_split_population": {
+      "ALL": 476,
+      "TEST": 95,
+      "TRAIN": 285,
+      "VALIDATION": 96
+    },
+    "AIntibody_train_validation_similarity": {
+      "identity_method": "existing validation global alignment; paired_min=min(VH identity, VL identity)",
+      "nearest_paired_min": {
+        "max": 0.8292682926829268,
+        "mean": 0.5590044916383761,
+        "median": 0.5306382408152319,
+        "min": 0.4690265486725664,
+        "n": 80,
+        "q25": 0.503099173553719,
+        "q75": 0.568409441098193
+      },
+      "novelty_bins": {
+        "0.50-<0.70": 57,
+        "0.70-<0.80": 7,
+        "0.80-<0.90": 1,
+        "<0.50": 15,
+        ">=0.90": 0
+      },
+      "pairwise_comparisons": 30480,
+      "query_unique_pairs": 80,
+      "reference_unique_pairs": 381
+    },
+    "exact_overlap": {
+      "AIntibody_all_715_records": {
+        "VH": 0,
+        "VL": 0,
+        "paired": 0
+      },
+      "AIntibody_frozen_476_hash_population": {
+        "paired": 0
+      },
+      "AIntibody_frozen_splits_paired_hashes_only": {
+        "TEST": 0,
+        "TRAIN": 0,
+        "VALIDATION": 0
+      },
+      "Jain": {
+        "VH": 0,
+        "VL": 0,
+        "paired": 0
+      },
+      "SAbDab2": {
+        "VH": 0,
+        "VL": 0,
+        "paired": 0
+      }
+    },
+    "identity_proxy_clusters": {
+      "0.7": {
+        "cluster_size_distribution": {
+          "1": 35,
+          "16": 1,
+          "2": 1,
+          "3": 5,
+          "4": 3
+        },
+        "clusters": 45,
+        "largest_cluster": 16,
+        "method": "connected components of exact all-pairs global-alignment edges; both VH and VL identity >= threshold",
+        "qualifying_pair_edges": 56,
+        "sequence_clusters_are_germline_families": false,
+        "singleton_clusters": 35,
+        "threshold": 0.7
+      },
+      "0.8": {
+        "cluster_size_distribution": {
+          "1": 76,
+          "2": 2
+        },
+        "clusters": 78,
+        "largest_cluster": 2,
+        "method": "connected components of exact all-pairs global-alignment edges; both VH and VL identity >= threshold",
+        "qualifying_pair_edges": 2,
+        "sequence_clusters_are_germline_families": false,
+        "singleton_clusters": 76,
+        "threshold": 0.8
+      },
+      "0.9": {
+        "cluster_size_distribution": {
+          "1": 80
+        },
+        "clusters": 80,
+        "largest_cluster": 1,
+        "method": "connected components of exact all-pairs global-alignment edges; both VH and VL identity >= threshold",
+        "qualifying_pair_edges": 0,
+        "sequence_clusters_are_germline_families": false,
+        "singleton_clusters": 80,
+        "threshold": 0.9
+      }
+    },
+    "source_hash_integrity": {
+      "AIntibody_source_sequence_hash_mismatches": 0,
+      "AIntibody_valid_rows_checked": 715
+    },
+    "source_record_counts": {
+      "AIntibody_all_sequence_rows": 715,
+      "AIntibody_all_unique_valid_paired_hashes": 686,
+      "Jain_processed_rows": 137,
+      "SAbDab2_both_chains_present": 17486,
+      "SAbDab2_source_rows": 22287,
+      "SAbDab2_unique_valid_paired_hashes": 5482,
+      "SAbDab2_valid_paired_rows": 17459
+    },
+    "test_label_access": "NO; TEST comparison used sequence_hash and split membership only"
+  },
+  "workbook_audit": {
+    "assay_id_audit": {
+      "Assay Data - average": {
+        "assay_only_ids": 0,
+        "sequence_only_ids": 0,
+        "unique_assay_ids": 80
+      },
+      "Assay Data - tidy format": {
+        "assay_only_ids": 0,
+        "sequence_only_ids": 0,
+        "unique_assay_ids": 80
+      }
+    },
+    "assay_inventory": [
+      {
+        "average_column": "acsins_dLmax_ph6_avg",
+        "average_missing_antibodies": 0,
+        "average_nonmissing_antibodies": 80,
+        "description": "Self association in a 20 mM histidine, 150 mM arginine.HCl, 0.05% polysorbate 80, pH 6.0 buffer reported as dLmax in nm",
+        "field": "acsins_dLmax_ph6",
+        "replicate_count_column": "acsins_dLmax_ph6_replicates",
+        "replicate_count_missing_antibodies": 0,
+        "replicate_count_nonmissing_antibodies": 80,
+        "standard_deviation_column": "acsins_dLmax_ph6_stddev",
+        "standard_deviation_missing_antibodies": 0,
+        "standard_deviation_nonmissing_antibodies": 80,
+        "tidy_antibodies_with_measurement": 80,
+        "tidy_column": "acsins_dLmax_ph6",
+        "tidy_missing_measurements": 0,
+        "tidy_nonmissing_measurements": 320
+      },
+      {
+        "average_column": "acsins_dLmax_ph7.4_avg",
+        "average_missing_antibodies": 0,
+        "average_nonmissing_antibodies": 80,
+        "description": "Self association in a PBS pH 7.4 buffer reported as dLmax in nm",
+        "field": "acsins_dLmax_ph7.4",
+        "replicate_count_column": "acsins_dLmax_ph7.4_replicates",
+        "replicate_count_missing_antibodies": 0,
+        "replicate_count_nonmissing_antibodies": 80,
+        "standard_deviation_column": "acsins_dLmax_ph7.4_stddev",
+        "standard_deviation_missing_antibodies": 0,
+        "standard_deviation_nonmissing_antibodies": 80,
+        "tidy_antibodies_with_measurement": 80,
+        "tidy_column": "acsins_dLmax_ph7.4",
+        "tidy_missing_measurements": 0,
+        "tidy_nonmissing_measurements": 320
+      },
+      {
+        "average_column": "hac_rt_avg",
+        "average_missing_antibodies": 19,
+        "average_nonmissing_antibodies": 61,
+        "description": "Retention time on heparin affinity chromatography reported in minutes",
+        "field": "hac_rt",
+        "replicate_count_column": "hac_rt_replicates",
+        "replicate_count_missing_antibodies": 0,
+        "replicate_count_nonmissing_antibodies": 80,
+        "standard_deviation_column": "hac_rt_stddev",
+        "standard_deviation_missing_antibodies": 80,
+        "standard_deviation_nonmissing_antibodies": 0,
+        "tidy_antibodies_with_measurement": 61,
+        "tidy_column": "hac_rt",
+        "tidy_missing_measurements": 259,
+        "tidy_nonmissing_measurements": 61
+      },
+      {
+        "average_column": "hic_rt_avg",
+        "average_missing_antibodies": 1,
+        "average_nonmissing_antibodies": 79,
+        "description": "Retention time on hydrophobic interaction reported in minutes",
+        "field": "hic_rt",
+        "replicate_count_column": "hic_rt_replicates",
+        "replicate_count_missing_antibodies": 0,
+        "replicate_count_nonmissing_antibodies": 80,
+        "standard_deviation_column": "hic_rt_stddev",
+        "standard_deviation_missing_antibodies": 80,
+        "standard_deviation_nonmissing_antibodies": 0,
+        "tidy_antibodies_with_measurement": 79,
+        "tidy_column": "hic_rt",
+        "tidy_missing_measurements": 241,
+        "tidy_nonmissing_measurements": 79
+      },
+      {
+        "average_column": "polyreactivity_prscore_cho_avg",
+        "average_missing_antibodies": 0,
+        "average_nonmissing_antibodies": 80,
+        "description": "Normalized polyreactivity score against CHO SMP",
+        "field": "polyreactivity_prscore_cho",
+        "replicate_count_column": "polyreactivity_prscore_cho_replicates",
+        "replicate_count_missing_antibodies": 0,
+        "replicate_count_nonmissing_antibodies": 80,
+        "standard_deviation_column": "polyreactivity_prscore_cho_stddev",
+        "standard_deviation_missing_antibodies": 0,
+        "standard_deviation_nonmissing_antibodies": 80,
+        "tidy_antibodies_with_measurement": 80,
+        "tidy_column": "polyreactivity_prscore_cho",
+        "tidy_missing_measurements": 7,
+        "tidy_nonmissing_measurements": 313
+      },
+      {
+        "average_column": "polyreactivity_prscore_ova_avg",
+        "average_missing_antibodies": 0,
+        "average_nonmissing_antibodies": 80,
+        "description": "Normalized polyreactivity score against Ovalbumin",
+        "field": "polyreactivity_prscore_ova",
+        "replicate_count_column": "polyreactivity_prscore_ova_replicates",
+        "replicate_count_missing_antibodies": 0,
+        "replicate_count_nonmissing_antibodies": 80,
+        "standard_deviation_column": "polyreactivity_prscore_ova_stddev",
+        "standard_deviation_missing_antibodies": 0,
+        "standard_deviation_nonmissing_antibodies": 80,
+        "tidy_antibodies_with_measurement": 80,
+        "tidy_column": "polyreactivity_prscore_ova",
+        "tidy_missing_measurements": 0,
+        "tidy_nonmissing_measurements": 320
+      },
+      {
+        "average_column": "sec_%monomer_avg",
+        "average_missing_antibodies": 0,
+        "average_nonmissing_antibodies": 80,
+        "description": "%Monomer assessed using size-exclusion chromatography",
+        "field": "sec_%monomer",
+        "replicate_count_column": "sec_%monomer_replicates",
+        "replicate_count_missing_antibodies": 0,
+        "replicate_count_nonmissing_antibodies": 80,
+        "standard_deviation_column": "sec_%monomer_stddev",
+        "standard_deviation_missing_antibodies": 80,
+        "standard_deviation_nonmissing_antibodies": 0,
+        "tidy_antibodies_with_measurement": 80,
+        "tidy_column": "sec_%monomer",
+        "tidy_missing_measurements": 240,
+        "tidy_nonmissing_measurements": 80
+      },
+      {
+        "average_column": "smac_rt_avg",
+        "average_missing_antibodies": 0,
+        "average_nonmissing_antibodies": 80,
+        "description": "Retention time on standup monolayer affinity chromatography reported in minutes",
+        "field": "smac_rt",
+        "replicate_count_column": "smac_rt_replicates",
+        "replicate_count_missing_antibodies": 0,
+        "replicate_count_nonmissing_antibodies": 80,
+        "standard_deviation_column": "smac_rt_stddev",
+        "standard_deviation_missing_antibodies": 80,
+        "standard_deviation_nonmissing_antibodies": 0,
+        "tidy_antibodies_with_measurement": 80,
+        "tidy_column": "smac_rt",
+        "tidy_missing_measurements": 240,
+        "tidy_nonmissing_measurements": 80
+      },
+      {
+        "average_column": "titer_avg",
+        "average_missing_antibodies": 0,
+        "average_nonmissing_antibodies": 80,
+        "description": "IgG titer assessed in clarified harvest supernatant reported in ug/mL",
+        "field": "titer",
+        "replicate_count_column": "titer_replicates",
+        "replicate_count_missing_antibodies": 0,
+        "replicate_count_nonmissing_antibodies": 80,
+        "standard_deviation_column": "titer_stddev",
+        "standard_deviation_missing_antibodies": 0,
+        "standard_deviation_nonmissing_antibodies": 80,
+        "tidy_antibodies_with_measurement": 80,
+        "tidy_column": "titer",
+        "tidy_missing_measurements": 80,
+        "tidy_nonmissing_measurements": 240
+      },
+      {
+        "average_column": "tm1_nanodsf_avg",
+        "average_missing_antibodies": 0,
+        "average_nonmissing_antibodies": 80,
+        "description": "First transition peak for melting temperature determined using nanoDSF at a ramp rate of 1.5 degC/min reported in degC",
+        "field": "tm1_nanodsf",
+        "replicate_count_column": "tm1_nanodsf_replicates",
+        "replicate_count_missing_antibodies": 0,
+        "replicate_count_nonmissing_antibodies": 80,
+        "standard_deviation_column": "tm1_nanodsf_stddev",
+        "standard_deviation_missing_antibodies": 0,
+        "standard_deviation_nonmissing_antibodies": 80,
+        "tidy_antibodies_with_measurement": 80,
+        "tidy_column": "tm1_nanodsf",
+        "tidy_missing_measurements": 81,
+        "tidy_nonmissing_measurements": 239
+      },
+      {
+        "average_column": "tm2_nanodsf_avg",
+        "average_missing_antibodies": 6,
+        "average_nonmissing_antibodies": 74,
+        "description": "Second transition peak for melting temperature determined using nanoDSF at a ramp rate of 1.5 degC/min reported in degC",
+        "field": "tm2_nanodsf",
+        "replicate_count_column": "tm2_nanodsf_replicates",
+        "replicate_count_missing_antibodies": 0,
+        "replicate_count_nonmissing_antibodies": 80,
+        "standard_deviation_column": "tm2_nanodsf_stddev",
+        "standard_deviation_missing_antibodies": 6,
+        "standard_deviation_nonmissing_antibodies": 74,
+        "tidy_antibodies_with_measurement": 74,
+        "tidy_column": "tm2_nanodsf",
+        "tidy_missing_measurements": 99,
+        "tidy_nonmissing_measurements": 221
+      },
+      {
+        "average_column": "tm3_nanodsf_avg",
+        "average_missing_antibodies": 55,
+        "average_nonmissing_antibodies": 25,
+        "description": "Third transition peak for melting temperature determined using nanoDSF at a ramp rate of 1.5 degC/min reported in degC",
+        "field": "tm3_nanodsf",
+        "replicate_count_column": "tm3_nanodsf_replicates",
+        "replicate_count_missing_antibodies": 0,
+        "replicate_count_nonmissing_antibodies": 80,
+        "standard_deviation_column": "tm3_nanodsf_stddev",
+        "standard_deviation_missing_antibodies": 55,
+        "standard_deviation_nonmissing_antibodies": 25,
+        "tidy_antibodies_with_measurement": 25,
+        "tidy_column": "tm3_nanodsf",
+        "tidy_missing_measurements": 246,
+        "tidy_nonmissing_measurements": 74
+      },
+      {
+        "average_column": "tonset_nanodsf_avg",
+        "average_missing_antibodies": 0,
+        "average_nonmissing_antibodies": 80,
+        "description": "Onset of thermal melting determined using nanoDSF at a ramp rate of 1.5 degC/min reported in degC",
+        "field": "tonset_nanodsf",
+        "replicate_count_column": "tonset_nanodsf_replicates",
+        "replicate_count_missing_antibodies": 0,
+        "replicate_count_nonmissing_antibodies": 80,
+        "standard_deviation_column": "tonset_nanodsf_stddev",
+        "standard_deviation_missing_antibodies": 0,
+        "standard_deviation_nonmissing_antibodies": 80,
+        "tidy_antibodies_with_measurement": 80,
+        "tidy_column": "tonset_nanodsf",
+        "tidy_missing_measurements": 81,
+        "tidy_nonmissing_measurements": 239
+      }
+    ],
+    "competition_endpoint_crosswalk": [
+      {
+        "average_field_present": true,
+        "average_nonmissing_n": 79,
+        "competition_endpoint": "HIC",
+        "field_present": true,
+        "interpretation": "HIC retention time",
+        "unit": "minutes",
+        "workbook_average_field": "hic_rt_avg",
+        "workbook_field": "hic_rt"
+      },
+      {
+        "average_field_present": true,
+        "average_nonmissing_n": 80,
+        "competition_endpoint": "PR-CHO",
+        "field_present": true,
+        "interpretation": "normalized polyreactivity score against CHO SMP",
+        "unit": "source-defined normalized score",
+        "workbook_average_field": "polyreactivity_prscore_cho_avg",
+        "workbook_field": "polyreactivity_prscore_cho"
+      },
+      {
+        "average_field_present": true,
+        "average_nonmissing_n": 80,
+        "competition_endpoint": "AC-SINS pH 7.4",
+        "field_present": true,
+        "interpretation": "AC-SINS dLmax at pH 7.4",
+        "unit": "nm",
+        "workbook_average_field": "acsins_dLmax_ph7.4_avg",
+        "workbook_field": "acsins_dLmax_ph7.4"
+      },
+      {
+        "average_field_present": true,
+        "average_nonmissing_n": 74,
+        "competition_endpoint": "Tm2",
+        "field_present": true,
+        "interpretation": "second nanoDSF melting transition",
+        "unit": "degC",
+        "workbook_average_field": "tm2_nanodsf_avg",
+        "workbook_field": "tm2_nanodsf"
+      },
+      {
+        "average_field_present": true,
+        "average_nonmissing_n": 80,
+        "competition_endpoint": "Titer",
+        "field_present": true,
+        "interpretation": "IgG titer in clarified harvest supernatant",
+        "unit": "ug/mL",
+        "workbook_average_field": "titer_avg",
+        "workbook_field": "titer"
+      }
+    ],
+    "frozen_model_compatibility": {
+      "developability_esm2_v1": {
+        "compatible": false,
+        "reasons": [
+          "GDPa3 has no BVP endpoint.",
+          "GDPa3 has no Tagg endpoint.",
+          "GDPa3 AC-SINS is dLmax, not the AIntibody dPW-adjusted endpoint.",
+          "GDPa3 Tm2 is not the AIntibody Tm endpoint."
+        ]
+      },
+      "hic_esm2_v1": {
+        "interpretation": "HIC retention-time observable matches nominally; cross-source protocol equivalence is unverified.",
+        "nominal_endpoint_compatible": true,
+        "nonmissing_n": 79,
+        "protocol_equivalence_confirmed": false,
+        "target_field": "hic_rt_avg",
+        "unit": "minutes"
+      }
+    },
+    "germline_metadata": {
+      "explicit_germline_fields": [],
+      "interpretation": "No IGHV/IGKV/IGLV germline annotation is present; subtype fields are constant-region subtype metadata, not germline V-gene calls.",
+      "subtype_fields": [
+        "hc_subtype",
+        "lc_subtype"
+      ]
+    },
+    "sequence_audit": {
+      "VH_length_aa": {
+        "max": 132,
+        "median": 122.0,
+        "min": 111
+      },
+      "VL_length_aa": {
+        "max": 113,
+        "median": 108.0,
+        "min": 104
+      },
+      "duplicate_id_rows": 0,
+      "duplicate_valid_paired_rows": 0,
+      "invalid_or_partial_reasons": {},
+      "missing_VH_rows": 0,
+      "missing_VL_rows": 0,
+      "normalized_sequence_rows": 0,
+      "rows": 80,
+      "rows_with_both_chains_present": 80,
+      "sequence_status_counts": {
+        "INVALID": 0,
+        "PARTIAL": 0,
+        "VALID": 80
+      },
+      "unique_record_ids": 80,
+      "unique_valid_VH_hashes": 80,
+      "unique_valid_VL_hashes": 80,
+      "unique_valid_paired_hashes": 80
+    },
+    "sequence_fields": {
+      "DNA_fields_present": [
+        "hc_dna_sequence",
+        "lc_dna_sequence"
+      ],
+      "VH": "vh_protein_sequence",
+      "VL": "lc_protein_sequence",
+      "definitions_sequence_fields": [
+        "vh_protein_sequence",
+        "vl_protein_sequence"
+      ],
+      "record_id": "antibody_id",
+      "source_header_difference": {
+        "definitions_light_chain_sequence_field": "vl_protein_sequence",
+        "mismatch": true,
+        "sequences_sheet_light_chain_sequence_field": "lc_protein_sequence"
+      }
+    },
+    "workbook": {
+      "file_size_bytes": 112571,
+      "sha256": "06daa55cb609278574d008c5509d90a63f9a8f1aa3949f34fc50a2e654b008f7",
+      "sheet_names": [
+        "Definitions",
+        "Sequences",
+        "Assay Data - tidy format",
+        "Assay Data - average",
+        "Versioning"
+      ],
+      "sheets": {
+        "Assay Data - average": {
+          "column_count": 40,
+          "headers": [
+            "antibody_id",
+            "acsins_dLmax_ph6_avg",
+            "acsins_dLmax_ph6_replicates",
+            "acsins_dLmax_ph6_stddev",
+            "acsins_dLmax_ph7.4_avg",
+            "acsins_dLmax_ph7.4_replicates",
+            "acsins_dLmax_ph7.4_stddev",
+            "hac_rt_avg",
+            "hac_rt_replicates",
+            "hac_rt_stddev",
+            "hic_rt_avg",
+            "hic_rt_replicates",
+            "hic_rt_stddev",
+            "polyreactivity_prscore_cho_avg",
+            "polyreactivity_prscore_cho_replicates",
+            "polyreactivity_prscore_cho_stddev",
+            "polyreactivity_prscore_ova_avg",
+            "polyreactivity_prscore_ova_replicates",
+            "polyreactivity_prscore_ova_stddev",
+            "sec_%monomer_avg",
+            "sec_%monomer_replicates",
+            "sec_%monomer_stddev",
+            "smac_rt_avg",
+            "smac_rt_replicates",
+            "smac_rt_stddev",
+            "titer_avg",
+            "titer_replicates",
+            "titer_stddev",
+            "tm1_nanodsf_avg",
+            "tm1_nanodsf_replicates",
+            "tm1_nanodsf_stddev",
+            "tm2_nanodsf_avg",
+            "tm2_nanodsf_replicates",
+            "tm2_nanodsf_stddev",
+            "tm3_nanodsf_avg",
+            "tm3_nanodsf_replicates",
+            "tm3_nanodsf_stddev",
+            "tonset_nanodsf_avg",
+            "tonset_nanodsf_replicates",
+            "tonset_nanodsf_stddev"
+          ],
+          "rows_with_nonempty_first_column": 80
+        },
+        "Assay Data - tidy format": {
+          "column_count": 15,
+          "headers": [
+            "antibody_id",
+            "technical_replicate",
+            "acsins_dLmax_ph6",
+            "acsins_dLmax_ph7.4",
+            "hac_rt",
+            "hic_rt",
+            "polyreactivity_prscore_cho",
+            "polyreactivity_prscore_ova",
+            "sec_%monomer",
+            "smac_rt",
+            "titer",
+            "tm1_nanodsf",
+            "tm2_nanodsf",
+            "tm3_nanodsf",
+            "tonset_nanodsf"
+          ],
+          "rows_with_nonempty_first_column": 320
+        },
+        "Definitions": {
+          "column_count": 4,
+          "headers": [
+            "Column name",
+            "Column description",
+            "",
+            ""
+          ],
+          "rows_with_nonempty_first_column": 21
+        },
+        "Sequences": {
+          "column_count": 7,
+          "headers": [
+            "antibody_id",
+            "hc_subtype",
+            "lc_subtype",
+            "vh_protein_sequence",
+            "lc_protein_sequence",
+            "hc_dna_sequence",
+            "lc_dna_sequence"
+          ],
+          "rows_with_nonempty_first_column": 80
+        },
+        "Versioning": {
+          "column_count": 3,
+          "headers": [
+            "Date",
+            "Version",
+            "Description"
+          ],
+          "rows_with_nonempty_first_column": 2
+        }
+      },
+      "source_filename": "GDPa3_20260106_full.xlsx",
+      "valid_xlsx_package": true
+    }
+  }
+}

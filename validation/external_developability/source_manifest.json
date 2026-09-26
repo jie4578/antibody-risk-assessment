@@ -1,0 +1,186 @@
+{
+  "manifest_version": 1,
+  "audit": "Phase 7C / 7C.1 external developability dataset candidate and GDPa3 workbook audit",
+  "audit_date": "2026-09-26",
+  "purpose": "Audit GDPa3 source provenance, paired-sequence independence, and assay compatibility without model analysis.",
+  "selected_candidate": "GDPa3",
+  "selection_status": "GDPa3 workbook audited; eligible for HIC-only protocol review; assay protocol equivalence remains unverified",
+  "candidates": [
+    {
+      "dataset": "GDPa3",
+      "publisher_or_repository": "Ginkgo Datapoints; official dataset access page",
+      "source_url": "https://datapoints.ginkgo.bio/dataset-access",
+      "publication": "2025 Ginkgo Datapoints Antibody Developability Competition outcomes: limited model performance and a call for data standardization",
+      "doi": "10.1080/19420862.2026.2634216",
+      "retrieval_date": null,
+      "local_verification_date": "2026-09-26",
+      "published_population_n": 80,
+      "sequence_availability": "Sequences sheet contains 80 rows with 80 unique IDs; 80/80 paired VH/VL rows pass the repository's existing canonical amino-acid validator. The sheet uses vh_protein_sequence and lc_protein_sequence; sequence values are not written to this manifest.",
+      "experimental_label_availability": "Workbook contains 13 raw assay/readout fields. Average-sheet nonmissing antibody counts: HIC 79/80; PR-CHO 80/80; AC-SINS pH 7.4 80/80; Tm2 74/80; titer 80/80. Original endpoint names and replicate summaries are audited separately; no values are inferred.",
+      "family_diversity": "Exact all-pairs global-alignment paired-min identity proxy: 45 connected components at 0.70 (largest 16), 78 at 0.80 (largest 2), 80 at 0.90 (all singleton). These are sequence-identity clusters, not germline families. No explicit IGHV/IGKV/IGLV calls in workbook.",
+      "independence_from_jain": "No exact VH, VL, or paired-sequence hash overlap among 80 valid GDPa3 pairs and the 137 Jain normalized records.",
+      "independence_from_aintibody": "No exact VH, VL, or paired-sequence hash overlap with the 715 normalized AIntibody rows or frozen 476-row split population; TRAIN/VALIDATION/TEST overlap used sequence hashes only. No TEST labels accessed.",
+      "license_or_accessibility": "Official Ginkgo release source and competition page identified. The local file was provided by the user as the untouched official workbook; file-specific redistribution license and original retrieval date are not independently verified. Keep raw file local and ignored pending terms review.",
+      "source_filename": "GDPa3_20260106_full.xlsx",
+      "supplementary_dataset_number": null,
+      "local_raw_path": "validation/external_developability/raw/GDPa3_20260106_full.xlsx",
+      "file_format": "XLSX per official dataset listing",
+      "file_size_bytes": 112571,
+      "sha256": "06daa55cb609278574d008c5509d90a63f9a8f1aa3949f34fc50a2e654b008f7",
+      "acquisition_status": "user_provided_local_workbook_present_hash_verified",
+      "acquisition_note": "No download was performed in this audit. User identified this untouched local workbook as the official GDPa3 file. Its structure and checksum were verified locally; origin is not cryptographically authenticated.",
+      "workbook_version_history": [
+        {"date": "2026-01-06", "version": "v. 3.1", "description": "Initial data drop"},
+        {"date": "2026-02-09", "version": "v. 3.2", "description": "Add AC-SINS data"}
+      ],
+      "workbook_sheets": {
+        "Definitions": {"rows": 21, "columns": 4},
+        "Sequences": {"rows": 80, "columns": 7},
+        "Assay Data - tidy format": {"rows": 320, "columns": 15},
+        "Assay Data - average": {"rows": 80, "columns": 40},
+        "Versioning": {"rows": 2, "columns": 3}
+      },
+      "phase7c1_decision": "READY_HIC_ONLY",
+      "composite_classifier_compatible": false,
+      "hic_protocol_equivalence_confirmed": false
+    },
+    {
+      "dataset": "GDPa1",
+      "publisher_or_repository": "Ginkgo Datapoints official Hugging Face dataset",
+      "source_url": "https://huggingface.co/datasets/ginkgo-datapoints/GDPa1",
+      "publication": "A high-throughput platform for biophysical antibody developability assessment to enable AI/ML model training",
+      "doi": "10.1080/19420862.2025.2593055",
+      "published_population_n": 246,
+      "sequence_availability": "Paired variable-region sequence fields described by the source; not downloaded.",
+      "experimental_label_availability": "Ten developability assay types reported by the source; not downloaded.",
+      "license_or_accessibility": "Dataset page reports CC BY 4.0 with restrictions and requires agreement to share contact information for file access.",
+      "sha256": null,
+      "acquisition_status": "not_acquired",
+      "selection_note": "Not selected as independent cohort due to known Jain-referenced antibody overlap risk and gated access condition."
+    },
+    {
+      "dataset": "GDPa4",
+      "publisher_or_repository": "Ginkgo Datapoints official dataset access page",
+      "source_url": "https://datapoints.ginkgo.bio/dataset-access",
+      "published_population_n": null,
+      "sequence_availability": "Not inspected.",
+      "experimental_label_availability": "Source describes developability assays.",
+      "license_or_accessibility": "Official release listing; file-specific terms not verified.",
+      "sha256": null,
+      "acquisition_status": "not_acquired",
+      "selection_note": "Rejected as independent cohort because source describes it as derived from GDPa1."
+    },
+    {
+      "dataset": "GDPa5",
+      "publisher_or_repository": "Ginkgo Datapoints official dataset access page",
+      "source_url": "https://datapoints.ginkgo.bio/dataset-access",
+      "published_population_n": 160,
+      "sequence_availability": "VHH sequences reported; paired VH/VL not applicable to the single-domain format.",
+      "experimental_label_availability": "Ten developability assay types reported by the source; workbook not downloaded.",
+      "license_or_accessibility": "Official release listing; file-specific terms not verified.",
+      "sha256": null,
+      "acquisition_status": "not_acquired",
+      "selection_note": "Not selected for paired VH/VL validation; possible separate VHH-specific dataset."
+    },
+    {
+      "dataset": "DOTAD 2.0",
+      "publisher_or_repository": "DOTAD official release center",
+      "source_url": "https://i.uestc.edu.cn/DOTAD2.0/Download.html",
+      "publication_identifier": "PMID:38530613; DOI not verified in this audit",
+      "published_population_n": null,
+      "sequence_availability": "Sequence workbooks listed by source; no file-level audit.",
+      "experimental_label_availability": "Integrated experimental developability workbooks listed by source; mixed-source records.",
+      "license_or_accessibility": "Academic/non-commercial reuse note; underlying source licenses apply.",
+      "sha256": null,
+      "acquisition_status": "not_acquired",
+      "selection_note": "Not selected as one independent cohort; source-level provenance and overlap require per-record review."
+    },
+    {
+      "dataset": "FLAb2 collection",
+      "publisher_or_repository": "Primary paper and supplementary material",
+      "source_url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12767642/",
+      "publication_identifier": "PMC:PMC12767642",
+      "published_population_n": null,
+      "sequence_availability": "Varies by contributing study; not audited as a unified paired-sequence file.",
+      "experimental_label_availability": "Multiple developability labels across heterogeneous studies.",
+      "license_or_accessibility": "Article/supplement publicly described; component dataset terms vary and require individual review.",
+      "sha256": null,
+      "acquisition_status": "not_acquired",
+      "selection_note": "Not selected as a single independent cohort because it aggregates heterogeneous source datasets."
+    }
+  ],
+  "analysis_performed": {
+    "downloaded_raw_data": false,
+    "sequence_hash_overlap": true,
+    "label_completeness_calculation": true,
+    "family_clustering": true,
+    "model_training": false,
+    "performance_analysis": false,
+    "labels_inferred_or_synthesized": false
+  },
+  "phase8a_preregistration": {
+    "status": "FROZEN_BEFORE_PREDICTION",
+    "freeze_date": "2026-09-26",
+    "pre_freeze_base_commit": "a66a4eb3d425067456c6c3a6ea3f3a35b02f0c21",
+    "target": {
+      "workbook": "GDPa3_20260106_full.xlsx",
+      "workbook_sha256": "06daa55cb609278574d008c5509d90a63f9a8f1aa3949f34fc50a2e654b008f7",
+      "worksheet": "Assay Data - average",
+      "column": "hic_rt_avg",
+      "underlying_endpoint": "hic_rt",
+      "unit": "minutes",
+      "aggregation": "Workbook-supplied *_avg field used as-is; a more detailed averaging formula is not documented.",
+      "qc_rule": "No explicit workbook-defined disqualifying QC state was found in the audited data-sheet fields; no QC is inferred from measurements or replicate summaries."
+    },
+    "population": {
+      "source_records_n": 80,
+      "valid_paired_sequences_n": 80,
+      "target_available_n": 79,
+      "frozen_evaluation_n": 79,
+      "target_missing_n": 1,
+      "selection_uses_target_magnitude": false,
+      "exclusion_reason": "The single record with missing hic_rt_avg is excluded under the preregistered complete-case availability rule; no label magnitude or model output is used."
+    },
+    "sequence_only_snapshot": {
+      "path": "validation/data/external_developability/gdpa3_phase8a/gdpa3_hic_sequence_snapshot.csv",
+      "rows": 79,
+      "columns": ["antibody_id", "VH", "VL", "VH_hash", "VL_hash", "paired_hash"],
+      "sha256": "5c41700df82dce43b8d379afbf054228818bf868f0ae4b89fa9270e8d1daf3e7",
+      "git_ignored": true
+    },
+    "frozen_model": {
+      "model_id": "hic_esm2_v1",
+      "model_version": "phase5-frozen-v1",
+      "artifact": "artifacts/ml_models/hic_esm2_v1.joblib",
+      "artifact_sha256": "b6b05c0f5e45bf2b53ef5878bef8f248c3a7ce50ee7b78e5f8cd09044ca309b4",
+      "training_population": "AIntibody TRAIN+VALIDATION only",
+      "training_rows": 355,
+      "test_rows_used_for_training": 0,
+      "esm_model": "facebook/esm2_t30_150M_UR50D",
+      "esm_revision": "a695f6045e2e32885fa60af20c13cb35398ce30c",
+      "paired_representation_dimension": 1280
+    },
+    "analysis_plan": {
+      "primary_metric": "Spearman rho",
+      "bootstrap_resamples": 2000,
+      "bootstrap_seed": 20260926,
+      "bootstrap_rng": "NumPy default_rng (PCG64); fixed-size resampling with replacement; degenerate draws omitted without redraw and counted.",
+      "secondary_metrics": ["Pearson correlation", "Kendall tau-b"],
+      "absolute_error_metrics": "OMITTED",
+      "similarity_analysis": "Descriptive counts only; frozen paired-min bins <0.70, 0.70-<0.80, 0.80-<0.90, >=0.90; no subgroup correlations or bin merging.",
+      "frozen_similarity_reference": "381 unique AIntibody TRAIN+VALIDATION sequence pairs; sequence fields and split membership only.",
+      "frozen_similarity_bin_counts_N79": {"<0.70": 71, "0.70-<0.80": 7, "0.80-<0.90": 1, ">=0.90": 0},
+      "maximum_nearest_paired_min_identity_N79": 0.8292682926829268,
+      "success_threshold": null
+    },
+    "firewall": {
+      "prediction_may_read": ["sequence-only snapshot", "frozen hic_esm2_v1 model artifact", "frozen ESM2 runtime/cache"],
+      "prediction_may_not_read": ["GDPa3 assay workbook", "label-bearing processed tables"],
+      "prediction_generated": false,
+      "performance_evaluated": false,
+      "aintibody_test_labels_accessed": false,
+      "composite_classifier_evaluated": false,
+      "other_endpoints_evaluated": false
+    }
+  }
+}
