@@ -217,13 +217,26 @@ provider setup details.
 The frozen validation work is documented in
 [`validation/PHASE5_ML_BENCHMARK_SUMMARY.md`](validation/PHASE5_ML_BENCHMARK_SUMMARY.md)
 and [`validation/PHASE5_TEST_EVALUATED.md`](validation/PHASE5_TEST_EVALUATED.md).
+The evidence hierarchy and GDPa3 result are summarized in
+[`validation/README.md`](validation/README.md) and the
+[`Phase 8C evaluation report`](validation/external_developability/PHASE8C_HIC_EXTERNAL_VALIDATION_RESULT.md).
 
 - **Jain 2017**: broad current-rule associations were largely weak or null.
-- **AIntibody**: assay-specific oxidation/HIC relationships emerged.
-- **HIC / ESM2 frozen held-out evidence**: Spearman rho `0.834662`, R²
-  `0.625834`, N=`72`.
+- **AIntibody**: assay-specific oxidation/HIC relationships emerged; its
+  internal HIC / ESM2 result was Spearman rho `0.834662`, R² `0.625834`,
+  N=`72`.
 - **Composite / ESM2 frozen held-out evidence**: PR-AUC `0.611665`, ROC-AUC
   `0.691468`, N=`95`.
+- **SAbDab2**: external sequence-diversity audit; it provides no developability
+  labels and is not a performance evaluation.
+- **GDPa3**: weak positive external HIC rank association under sequence and
+  assay distribution shift: Spearman rho `0.231901`, 95% bootstrap CI
+  `[0.005418, 0.437591]`, N=`79`. The AIntibody and GDPa3 results come from
+  different sources and assay settings and are not directly comparable.
+
+These are dataset-specific evidence layers, not a combined validation score.
+GDPa3 HIC was observed in Phase 8C; it is not an untouched holdout for future
+model development.
 
 **Critical limitation:** 84/95 TEST sequences had paired-min sequence identity
 ≥0.90 to TRAIN. This does **not** establish family-independent generalization.

@@ -41,6 +41,24 @@ landscape:
 These values are benchmark evidence, not expected accuracy on new antibody
 families.
 
+## External evidence — GDPa3 HIC
+
+The frozen `hic_esm2_v1` model has one external, cross-source / cross-protocol
+HIC evaluation on GDPa3. Exact paired VH/VL overlap with Jain, AIntibody
+TRAIN/VALIDATION/TEST/ALL, and SAbDab2 was zero in the frozen sequence audit.
+For GDPa3 (`hic_rt_avg`), the result was Spearman rho `0.231901` with a 95%
+bootstrap interval `[0.005418, 0.437591]` at N=`79`; Pearson r was `0.187175`
+and Kendall tau-b was `0.153571`.
+
+This is a weak positive rank association relative to the internal AIntibody
+HIC result above. The interval is broad and its lower bound is close to zero.
+GDPa3 assay conditions are not established as equivalent to AIntibody's, so
+this is not assay-equivalent replication or external calibration. It does not
+establish family-independent generalization. GDPa3 HIC is **OBSERVED AFTER
+PHASE 8C** and any future reuse is post-hoc, not an untouched holdout. See the
+[frozen Phase 8C result](../validation/external_developability/PHASE8C_HIC_EXTERNAL_VALIDATION_RESULT.md)
+for the prediction/model seal and full limitations.
+
 ## Known limitations
 
 The benchmark is entity-controlled but not family-independent. 84/95 TEST
