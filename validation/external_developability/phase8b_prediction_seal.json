@@ -1,0 +1,31 @@
+{
+  "phase": "8B",
+  "status": "SEALED_BEFORE_LABEL_REVEAL",
+  "prediction_filename": "validation/data/external_developability/gdpa3_phase8b/gdpa3_hic_blind_predictions.csv",
+  "prediction_sha256": "9ffecbb2621b9760494f72ae94cb04a002a317cc75524785fc5a5efef645193f",
+  "prediction_row_count": 79,
+  "prediction_schema": [
+    "antibody_id",
+    "paired_hash",
+    "hic_prediction",
+    "model_version"
+  ],
+  "sequence_snapshot_sha256": "5c41700df82dce43b8d379afbf054228818bf868f0ae4b89fa9270e8d1daf3e7",
+  "model_id": "hic_esm2_v1",
+  "model_version": "phase5-frozen-v1",
+  "model_artifact_sha256": "b6b05c0f5e45bf2b53ef5878bef8f248c3a7ce50ee7b78e5f8cd09044ca309b4",
+  "esm_model": "facebook/esm2_t30_150M_UR50D",
+  "esm_revision": "a695f6045e2e32885fa60af20c13cb35398ce30c",
+  "phase8b_code_commit": "73b278014a059b68c830c39cffc37d29ff1e705f",
+  "runtime": {
+    "python": "3.13.9",
+    "torch": "2.13.0+cpu",
+    "transformers": "4.57.6",
+    "numpy": "2.3.5",
+    "device": "cpu"
+  },
+  "repeatability_max_absolute_difference": 0.0,
+  "timestamp_utc": "2026-09-26T08:17:00Z",
+  "label_access": "NONE",
+  "performance_evaluation": "NONE"
+}
