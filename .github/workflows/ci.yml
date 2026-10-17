@@ -22,6 +22,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Install Qt Linux runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libopengl0
       - name: Install core + Desktop + dev deps
         run: |
           python -m pip install --upgrade pip
@@ -40,11 +44,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install Qt Linux runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libopengl0
       - name: Install CPU torch (小体积) + all extras
         run: |
           python -m pip install --upgrade pip
           pip install torch --index-url https://download.pytorch.org/whl/cpu
-          pip install ".[all]"
+          pip install ".[all,dev]"
       - name: Run tests (含可选模块)
         run: python -m pytest -q
 
@@ -65,6 +73,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install Qt Linux runtime libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libopengl0
       - name: Install Desktop and test dependencies
         run: python -m pip install ".[desktop,dev]"
       - name: Application and installed-wheel smoke tests

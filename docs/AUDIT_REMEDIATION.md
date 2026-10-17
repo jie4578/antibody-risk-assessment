@@ -69,6 +69,12 @@ The 22 privacy regressions are included in the application total. No Phase 8C
 evaluation was rerun. CI workflow YAML parses locally; remote Windows/Linux
 job results must be checked for the pushed repair checkpoint.
 
+The first remote run exposed fresh-runner setup gaps: Qt's Linux EGL library
+was absent, the optional-dependency job did not install pytest, and the offline
+wheel build lacked setuptools on Windows. CI now installs the Linux Qt runtime
+libraries, the optional job installs `all,dev`, and `dev` explicitly includes
+the setuptools build backend. No test is skipped to hide these failures.
+
 User-provided Windows screenshots confirm normal batch import, N55Q rule
 comparison, mutation edit invalidation, cross-antibody Summary exclusion,
 Year-column literature selection, GENERAL-label preservation and evidence
