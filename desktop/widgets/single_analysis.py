@@ -51,7 +51,7 @@ class SingleAnalysisPage(QWidget):
         self._literature_evidence = []
         self.antibody_id = QLineEdit()
         self.sequence = QPlainTextEdit()
-        self.sequence.setPlaceholderText("粘贴 VH 或 VL 氨基酸序列")
+        self.sequence.setPlaceholderText("粘贴用于单链规则扫描的序列（配对 ML 时此框视为 VH）")
         self.vh_sequence = self.sequence
         self.vl_sequence = QPlainTextEdit()
         self.vl_sequence.setPlaceholderText("粘贴 VL 氨基酸序列（实验性 ML 估计需要 VH + VL）")
@@ -74,12 +74,15 @@ class SingleAnalysisPage(QWidget):
         self._build_summary_section()
         self.sequence.textChanged.connect(self._input_changed)
         self.vl_sequence.textChanged.connect(self._input_changed)
+        self.antibody_id.textChanged.connect(self._mark_summary_stale)
         form = QFormLayout(); form.addRow("Antibody ID", self.antibody_id); form.addRow("VH Sequence", self.sequence); form.addRow("VL Sequence", self.vl_sequence)
         buttons = QHBoxLayout(); buttons.addWidget(self.analyze_button); buttons.addWidget(self.clear_button); buttons.addWidget(self.send_mutation_button); buttons.addWidget(self.find_literature_button); buttons.addStretch()
         summary = QFormLayout(); summary.addRow("Sequence length", self.length); summary.addRow("Risk Score", self.score); summary.addRow("Risk Level", self.level)
         self.table = QTableWidget(0, 4); self.table.setHorizontalHeaderLabels(["Position", "Motif", "Category", "Region"])
         self.table.itemSelectionChanged.connect(self._risk_selected)
-        layout = QVBoxLayout(self); layout.addLayout(form); layout.addLayout(buttons); layout.addWidget(self.message); layout.addLayout(summary); layout.addWidget(self.table); layout.addWidget(self.ml_section); layout.addWidget(self.summary_section); layout.addWidget(self.copilot_section)
+        self.rule_scope_notice = QLabel("Rule screening applies only to the first sequence input. The VL partner is used for paired ML estimates only. CDR regions use fixed sequence indices (31–35, 50–65, 99–110); no automatic antibody numbering is performed.")
+        self.rule_scope_notice.setWordWrap(True)
+        layout = QVBoxLayout(self); layout.addWidget(self.rule_scope_notice); layout.addLayout(form); layout.addLayout(buttons); layout.addWidget(self.message); layout.addLayout(summary); layout.addWidget(self.table); layout.addWidget(self.ml_section); layout.addWidget(self.summary_section); layout.addWidget(self.copilot_section)
         self._update_ml_controls()
         self._update_copilot_controls()
 
@@ -185,6 +188,8 @@ class SingleAnalysisPage(QWidget):
                 "analysis": self._analysis_result,
                 "risk_score": self._rule_score,
                 "sequence_length": getattr(self._analysis_result, "sequence_length", None),
+                "chain_context": "Rule screening: first input only; interpreted as VH for paired ML. VL partner is not rule-scanned.",
+                "rule_version": getattr(self._analysis_result, "metadata", {}).get("rule_version"),
             },
             "ml_estimates": self._ml_result,
             "mutation_analysis": external.get("mutation_analysis"),

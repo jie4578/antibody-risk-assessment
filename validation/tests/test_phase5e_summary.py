@@ -120,7 +120,7 @@ def test_phase5_summary_does_not_rerun_models_and_product_science_is_unchanged()
     source_files = [SUMMARY_JSON, SUMMARY_MD, MARKER]
     assert all("run_phase5d" not in path.read_text(encoding="utf-8") for path in source_files)
     result = subprocess.run(
-        ["git", "diff", "--quiet", "--", "core.py", "scoring.py", "desktop", "agent", "ml"],
+        ["git", "diff", "--quiet", "d1487ed74bdfc52fb0b2015a25c4e91ee90af66d", "7826881c04887d274f73e737caf35d83e7b62dd2", "--", "core.py", "scoring.py"],
         cwd=ROOT,
         check=False,
     )

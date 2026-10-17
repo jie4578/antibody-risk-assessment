@@ -82,7 +82,7 @@ def test_batch_detail_keeps_chain_and_category_summary(monkeypatch):
 
     app = QApplication.instance() or QApplication([])
     record = BatchRecord("AB-1", 120, 0, 66.3, "Medium Risk", 2, 1, 1, 1, "PARTIAL", [], [
-        ("VH", RiskItem(category="脱酰胺", motif="NG", position="55-56", region="CDR2")),
+        ("VH", RiskItem(category="脱酰胺化", motif="NG", position="55-56", region="CDR2")),
         ("VL", RiskItem(category="N-糖基化", motif="NXS", position="10-12", region="FW")),
     ])
     other = BatchRecord("AB-2", 120, 0, 20.0, "Low Risk", 0, 0, 0, 0, "PARTIAL")
@@ -97,7 +97,7 @@ def test_batch_detail_keeps_chain_and_category_summary(monkeypatch):
     page.table.selectRow(0)
     assert page.detail_table.item(0, 0).text() == "VH"
     assert page.detail_table.item(1, 0).text() == "VL"
-    assert "脱酰胺: 1" in page.detail.text()
+    assert "脱酰胺化: 1" in page.detail.text()
     assert "N-糖基化: 1" in page.detail.text()
     page.deleteLater(); app.processEvents()
 

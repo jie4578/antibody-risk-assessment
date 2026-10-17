@@ -40,6 +40,13 @@ field `100 - calculated_score`. No paired antibody score is invented. Assay
 values are not read for feature decisions, and repeated AIntibody sequence
 records remain separate rows.
 
+Following the unreleased audit repairs, historical RULE48 extraction explicitly
+selects `rule_version="frozen_v1"`. The product default `overlap_v2` additionally
+enumerates overlapping N-glycosylation candidates and must not replace the
+frozen v1 features in historical benchmarks. Sequence-only tests compare v1
+behavior against the original Git source and verify the unchanged scoring
+formula. Existing dataset, prediction and result artifacts are retained.
+
 ## Phase 5 frozen protein benchmark
 
 The Phase 5D TEST evaluation was opened exactly once under the frozen

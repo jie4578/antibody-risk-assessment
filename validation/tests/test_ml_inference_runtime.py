@@ -163,11 +163,5 @@ def test_build_is_reproducible_on_frozen_reference_embeddings(tmp_path: Path) ->
 
 
 def test_core_and_scoring_are_not_modified() -> None:
-    import subprocess
-
-    result = subprocess.run(
-        ["git", "diff", "--quiet", "--", "core.py", "scoring.py"],
-        cwd=ROOT,
-        check=False,
-    )
-    assert result.returncode == 0
+    from validation.frozen_baseline import assert_frozen_rule_compatibility
+    assert_frozen_rule_compatibility()

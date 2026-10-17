@@ -25,6 +25,10 @@ RISK_MOTIFS = {
 # 标准 20 种氨基酸（统一校验白名单，单条与批量共用，禁止复制）
 VALID_AMINO_ACIDS = frozenset("ACDEFGHIKLMNPQRSTVWY")
 
+# v1 remains reproducible for frozen validation; v2 enumerates overlapping sequons.
+FROZEN_RULE_VERSION = "frozen_v1"
+CURRENT_RULE_VERSION = "overlap_v2"
+
 # ---------- v2.0 PTM / Glycosylation 常量 ----------
 # O-糖基化（启发式候选，未经实验验证）
 O_GLYCO_CATEGORY = "O-糖基化"
@@ -134,8 +138,10 @@ def annotate_cdr(seq, cdr1_s, cdr1_e, cdr2_s, cdr2_e, cdr3_s, cdr3_e):
             cdr_map[i] = "FW"
     return cdr_map
 
-def analyze_sequence(sequence, cdr1_s, cdr1_e, cdr2_s, cdr2_e, cdr3_s, cdr3_e):
+def analyze_sequence(sequence, cdr1_s, cdr1_e, cdr2_s, cdr2_e, cdr3_s, cdr3_e, *, rule_version=CURRENT_RULE_VERSION):
     """统一分析入口：扫描序列并返回 AnalysisResult。逻辑与 scan_sequence 完全一致。"""
+    if rule_version not in {FROZEN_RULE_VERSION, CURRENT_RULE_VERSION}:
+        raise ValueError(f"Unsupported scientific rule version: {rule_version}")
     sequence = normalize_sequence(sequence)
     ok, err = validate_sequence(sequence, allow_empty=False)
     if not ok:
@@ -155,6 +161,8 @@ def analyze_sequence(sequence, cdr1_s, cdr1_e, cdr2_s, cdr2_e, cdr3_s, cdr3_e):
     report_lines.append("抗体序列化学稳定性风险基序扫描报告")
     report_lines.append(f"序列长度: {len(sequence)} aa")
     report_lines.append(f"CDR定义: CDR1={cdr1_s}-{cdr1_e}, CDR2={cdr2_s}-{cdr2_e}, CDR3={cdr3_s}-{cdr3_e}")
+    if rule_version != FROZEN_RULE_VERSION:
+        report_lines.append(f"Scientific rule version: {rule_version}")
     report_lines.append("")
 
     risk_items = []
@@ -189,7 +197,13 @@ def analyze_sequence(sequence, cdr1_s, cdr1_e, cdr2_s, cdr2_e, cdr3_s, cdr3_e):
 
     # N-糖基化扫描（规则：N-X-S/T，X != P；context = 命中位点前后 ±3 aa）
     glyco_pattern = r"N[^P][ST]"
-    for match in re.finditer(glyco_pattern, sequence):
+    # Probe each residue so NNST contains candidates at both N's.
+    compiled_glyco = re.compile(glyco_pattern)
+    glyco_matches = compiled_glyco.finditer(sequence) if rule_version == FROZEN_RULE_VERSION else (
+        match for start in range(len(sequence))
+        if (match := compiled_glyco.match(sequence, start)) is not None
+    )
+    for match in glyco_matches:
         start = match.start()
         end = match.end()
         region = cdr_map.get(start, "?")
@@ -230,7 +244,7 @@ def analyze_sequence(sequence, cdr1_s, cdr1_e, cdr2_s, cdr2_e, cdr3_s, cdr3_e):
         risks=risk_items,
         summary=summary,
         report="\n".join(report_lines),
-        metadata={"cdr": _cdr_metadata(cdr1_s, cdr1_e, cdr2_s, cdr2_e, cdr3_s, cdr3_e)},
+        metadata={"cdr": _cdr_metadata(cdr1_s, cdr1_e, cdr2_s, cdr2_e, cdr3_s, cdr3_e), **({"rule_version": rule_version} if rule_version != FROZEN_RULE_VERSION else {})},
     )
 
 

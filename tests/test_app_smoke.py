@@ -62,7 +62,9 @@ def test_batch_wrapper_fasta_end_to_end(tmp_path):
         assert os.path.isfile(path)
         saved = pd.read_csv(path)
         assert list(saved.columns) == list(df.columns)
-        assert len(saved.columns) == 14
+        assert len(saved.columns) == 15
+        assert saved.columns[-1] == "rule_version"
+        assert saved.loc[0, "rule_version"] == "overlap_v2"
     finally:
         cleanup_result_csv(path)
 

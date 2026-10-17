@@ -9,7 +9,7 @@ import tempfile
 
 import pandas as pd
 
-from core import normalize_sequence, validate_sequence, analyze_sequence
+from core import CURRENT_RULE_VERSION, normalize_sequence, validate_sequence, analyze_sequence
 from scoring import compute_risk_score
 
 # 输入必需列
@@ -31,6 +31,7 @@ OUTPUT_COLUMNS = [
     "analysis_status",
     "risk_score",
     "risk_level",
+    "rule_version",
 ]
 
 # 归为 PTM（翻译后修饰）的类别；其余基序归为化学 liability
@@ -179,6 +180,7 @@ def batch_analysis(df, cdr1_s=31, cdr1_e=35, cdr2_s=50, cdr2_e=65, cdr3_s=99, cd
         risk = compute_risk_score([("VH", vh_result), ("VL", vl_result)])
         record["risk_score"] = risk.overall_score
         record["risk_level"] = risk.risk_level
+        record["rule_version"] = CURRENT_RULE_VERSION
 
         records.append(record)
 

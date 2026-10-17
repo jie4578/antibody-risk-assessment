@@ -8,6 +8,7 @@ search, mutate, score, rank, or make a research decision.
 from __future__ import annotations
 
 import json
+import math
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -74,7 +75,17 @@ _REMOVED_KEYS = {
     "vh", "vl", "sequence", "raw_sequence", "original_sequence",
     "mutant_sequence", "sequence_input", "path", "file_path", "local_path",
 }
-_SEQUENCE_PATTERN = re.compile(r"(?i)(?:[ACDEFGHIKLMNPQRSTVWY]\s*){20,}")
+# Match complete sequence tokens, not amino-acid-letter substrings inside prose.
+# Also cover common 10-residue blocks and residue-by-residue pasted sequences.
+_SEQUENCE_PATTERN = re.compile(
+    r"(?<![A-Za-z0-9_])(?:"
+    r"[ACDEFGHIKLMNPQRSTVWY]{20,}(?:\s+[ACDEFGHIKLMNPQRSTVWY]{20,})*"
+    r"|[ACDEFGHIKLMNPQRSTVWY]{10}(?:\s+[ACDEFGHIKLMNPQRSTVWY]{10})+(?:\s+[ACDEFGHIKLMNPQRSTVWY]{1,9})?"
+    r"|[ACDEFGHIKLMNPQRSTVWY](?:\s+[ACDEFGHIKLMNPQRSTVWY]){19,}"
+    r")(?![A-Za-z0-9_])",
+    re.I,
+)
+_SEQUENCE_HASH_KEYS = {"vh", "vl", "sequence", "original_hash", "mutant_hash"}
 _ABSOLUTE_PATH_PATTERN = re.compile(r"^(?:[A-Za-z]:[\\/]|\\\\|/etc/|/Users/|/home/)")
 
 
@@ -82,6 +93,15 @@ def _scrub_context(value: Any, key: str = "") -> Any:
     """Keep summary facts while defensively removing raw/private fields."""
 
     normalized_key = key.casefold().replace("-", "_")
+    if normalized_key == "sequence_hashes":
+        # Chain names here identify opaque SHA256 provenance, not raw sequences.
+        return {
+            str(name): digest
+            for name, digest in value.items()
+            if str(name).casefold() in _SEQUENCE_HASH_KEYS
+            and isinstance(digest, str)
+            and re.fullmatch(r"[0-9a-fA-F]{64}", digest)
+        } if isinstance(value, Mapping) else {}
     if normalized_key in _REMOVED_KEYS or normalized_key.endswith("_api_key"):
         return None
     if isinstance(value, Mapping):
@@ -202,6 +222,9 @@ _FORBIDDEN_PATTERNS = (
     (re.compile(r"\b(?:definitely\s+(?:developable|non[- ]developable)|guaranteed|clinical\s+(?:success|failure)\s+probability)\b", re.I), "unsupported certainty or clinical probability"),
     (re.compile(r"\b(?:family[- ]independent|across\s+unrelated\s+antibody\s+famil(?:y|ies))\b.{0,80}\b(?:validated|generaliz(?:e|ation)|proven|established)\b", re.I), "unsupported family-generalization claim"),
     (re.compile(r"\b(?:overall\s+(?:evidence|decision|risk)\s+score|pass\s*/?\s*fail\s+decision)\b\s*[:=]?", re.I), "invented overall decision score"),
+    (re.compile(r"(?:建议|推荐|应当|应该|优先选择|最佳|最优).{0,40}(?:突变|候选|抗体|进入实验)|(?:突变|候选).{0,30}(?:最佳|最优)|(?:最终结论|综合评分|总体评分|临床.{0,8}(?:成功|失败)概率)"), "unsupported scientific decision"),
+    (re.compile(r"(?:家族独立|跨家族|无关抗体家族).{0,40}(?:验证|泛化|证明)|(?:validated|proven|established).{0,60}family[- ]independent", re.I), "unsupported family-generalization claim"),
+    (re.compile(r"\bbest\s+(?:candidate|antibody)\b|\b(?:recommend|choose|select|prioritize)\b.{0,40}(?:[ACDEFGHIKLMNPQRSTVWY]\d+[ACDEFGHIKLMNPQRSTVWY]|\bmutant\b|\bcandidate\b)", re.I), "decision or mutation recommendation"),
 )
 _PMID_PATTERN = re.compile(r"\bPMID\s*[:#]?\s*([0-9]{4,9})\b", re.I)
 _PMCID_PATTERN = re.compile(r"\bPMCID\s*[:#]?\s*(PMC[0-9]+)\b", re.I)
@@ -213,13 +236,91 @@ def _response_citations(text: str) -> List[str]:
     return [value.rstrip(".,;:)") for value in values]
 
 
+def _affirmative_clauses(text: str):
+    # Negated limitations are permitted; a later "but" starts a new claim.
+    clauses = re.split(r"[.!?;。！？；\n]|\b(?:but|however)\b|但是|然而", text, flags=re.I)
+    for clause in clauses:
+        denial = re.search(r"\b(?:not|never|no|cannot|unknown|unvalidated|unsupported)\b|未|不能|不应|无法|不支持|不建议|不推荐|不是|不可|并非|无证据|尚无", clause, re.I)
+        if denial and not re.search(r"\bnot\s+only\b|不仅", clause, re.I):
+            continue
+        yield clause
+
+
+_NUMBER = r"([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)"
+_CLAIM_SEPARATOR = r'''[\s"'`*_]*(?:为|是|is|[:=])?[\s"'`*_]*'''
+_CLAIM_PATTERNS = (
+    ("sequence_length", re.compile(r"(?:sequence[\s_]+length|序列长度)" + _CLAIM_SEPARATOR + _NUMBER, re.I)),
+    ("sequence_length", re.compile(r"sequence\s+(?:is|has)\s+(?:a\s+length\s+of\s+)?" + _NUMBER + r"\s*(?:aa|amino\s+acids)", re.I)),
+    ("calculated_score", re.compile(r"(?<![A-Za-z])(?:risk[\s_]+score|rule\s+score|calculated(?:\s+rule)?[\s_]+score|风险评分|风险分数|规则评分)" + _CLAIM_SEPARATOR + _NUMBER, re.I)),
+    ("total_sites", re.compile(r"(?:total\s+(?:risk\s+)?sites|总风险位点数|风险位点总数)\s*(?:为|是|[:=])?\s*" + _NUMBER, re.I)),
+    ("cdr_sites", re.compile(r"(?:CDR\s+(?:risk\s+)?sites|CDR风险位点数)\s*(?:为|是|[:=])?\s*" + _NUMBER, re.I)),
+    ("hic_estimate", re.compile(r"(?:HIC(?:\s+model)?\s+estimate|HIC预测值|HIC估计值)\s*(?:为|是|[:=])?\s*" + _NUMBER, re.I)),
+    ("probability_not_developable", re.compile(r"(?:P\(NOT_DEVELOPABLE\)|NOT_DEVELOPABLE\s+probability)\s*(?:为|是|[:=])?\s*" + _NUMBER + r"\s*(%)?", re.I)),
+)
+
+
+def _matches_display_value(raw, expected, *, percent=False, discrete=False):
+    if expected is None or not isinstance(expected, (int, float)) or not math.isfinite(expected):
+        return False
+    expected = expected * 100 if percent else expected
+    claimed = float(raw)
+    if math.isclose(claimed, expected, rel_tol=1e-6, abs_tol=1e-6):
+        return True
+    if discrete or "e" in raw.lower():
+        return False
+    decimals = len(raw.partition(".")[2])
+    return math.isclose(claimed, round(expected, decimals), rel_tol=1e-9, abs_tol=1e-9)
+
+
+def _validate_numeric_claims(text, payload):
+    facts = dict(payload.get("sequence_analysis") or {})
+    facts.update(payload.get("ml_estimates") or {})
+    mutation = payload.get("mutation_analysis") or {}
+    role_names = r"(baseline|original|mutant|delta|Δ|原始|基线|突变后|突变体|差值)"
+    role_pattern = re.compile(role_names + r"\s*(?:(?:calculated\s+)?(?:rule\s+|risk\s+)?score|风险评分|规则评分|分数)" + _CLAIM_SEPARATOR + _NUMBER, re.I)
+    role_spans = []
+    for match in role_pattern.finditer(text):
+        role = match.group(1).lower()
+        name = "mutant_score" if role in {"mutant", "突变后", "突变体"} else "delta_score" if role in {"delta", "δ", "差值"} else "original_score"
+        expected = mutation.get(name, facts.get("calculated_score") if name == "original_score" and not mutation else None)
+        if not _matches_display_value(match.group(2), expected):
+            return f"Response blocked: mutation {name} does not match the current Research Summary."
+        role_spans.append(match.span())
+    ml_pattern = re.compile(role_names + r"\s*(HIC(?:\s+model)?(?:\s+estimate)?|P\(NOT_DEVELOPABLE\)|probability(?:\s*\(percentage points\))?|HIC估计值|概率)" + _CLAIM_SEPARATOR + _NUMBER + r"\s*(%|pp|percentage points)?", re.I)
+    mutation_ml = payload.get("mutation_ml") or {}
+    for match in ml_pattern.finditer(text):
+        role = match.group(1).lower()
+        section = "mutant" if role in {"mutant", "突变后", "突变体"} else "delta" if role in {"delta", "δ", "差值"} else "baseline"
+        metric = "hic" if match.group(2).upper().startswith("HIC") else "probability"
+        expected = (mutation_ml.get(section) or {}).get(metric)
+        if not mutation_ml and section == "baseline":
+            expected = facts.get("hic_estimate" if metric == "hic" else "probability_not_developable")
+        percent = metric == "probability" and (bool(match.group(4)) or "percentage points" in match.group(2).lower())
+        if not _matches_display_value(match.group(3), expected, percent=percent):
+            return f"Response blocked: mutation ML {section} {metric} does not match the current Research Summary."
+        role_spans.append(match.span())
+    for name, pattern in _CLAIM_PATTERNS:
+        for match in pattern.finditer(text):
+            if any(start <= match.start() < end for start, end in role_spans):
+                continue
+            expected = facts.get(name)
+            percent = name == "probability_not_developable" and bool(match.group(2))
+            if not _matches_display_value(match.group(1), expected, percent=percent, discrete=name in {"sequence_length", "total_sites", "cdr_sites"}):
+                return f"Response blocked: {name} claim does not match the current Research Summary."
+    return ""
+
+
 def validate_copilot_response(text: str, context: ResearchCopilotContext) -> CopilotValidation:
     """Reject unsafe decision language and identifiers absent from the summary."""
 
     value = str(text or "").strip()
-    for pattern, reason in _FORBIDDEN_PATTERNS:
-        if pattern.search(value):
-            return CopilotValidation(False, f"Response blocked: {reason}.")
+    for clause in _affirmative_clauses(value):
+        for pattern, reason in _FORBIDDEN_PATTERNS:
+            if pattern.search(clause):
+                return CopilotValidation(False, f"Response blocked: {reason}.")
+    numeric_error = _validate_numeric_claims(value, context.payload)
+    if numeric_error:
+        return CopilotValidation(False, numeric_error)
     allowed_ids = _literature_identifiers(context.payload)
     citations = tuple(_response_citations(value))
     for citation in citations:

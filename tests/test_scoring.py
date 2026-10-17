@@ -144,7 +144,14 @@ class TestBatchColumns:
         assert "risk_score" in result.columns
         assert "risk_level" in result.columns
         assert list(result.columns) == OUTPUT_COLUMNS
-        assert len(OUTPUT_COLUMNS) == 14
+        assert OUTPUT_COLUMNS[:-1] == [
+            "antibody_id", "VH_length", "VL_length", "CDR1_risk_count",
+            "CDR2_risk_count", "CDR3_risk_count", "FW_risk_count", "PTM_risk_count",
+            "liability_risk_count", "total_risk_count", "warnings", "analysis_status",
+            "risk_score", "risk_level",
+        ]
+        assert OUTPUT_COLUMNS[-1] == "rule_version"
+        assert result.iloc[0]["rule_version"] == "overlap_v2"
         assert result.iloc[0]["risk_score"] == pytest.approx(100.0)
         assert result.iloc[0]["risk_level"] == "Low Risk"
 

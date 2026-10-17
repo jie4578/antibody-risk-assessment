@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from PySide6.QtCore import QThreadPool, QTimer
 from PySide6.QtWidgets import QLabel, QListWidget, QMainWindow, QStackedWidget, QHBoxLayout, QWidget
+
+from desktop.workers import Worker
 
 from desktop.settings import RuntimeLLMConfig, load_settings
 from desktop.widgets.ai_assistant import AIAssistantPage
@@ -18,6 +21,30 @@ class MainWindow(QMainWindow):
         self.literature = LiteraturePage(); self.literature.set_open_ai(self._open_ai_evidence); self.literature.set_summary_changed_callback(self.single.notify_external_evidence_changed); self.stack.addWidget(self.literature)
         self.settings = SettingsPage(); self._config = self.settings.config(); self.ai = AIAssistantPage(lambda: self._config); self.stack.addWidget(self.ai); self.stack.addWidget(self.settings); self.settings.config_applied.connect(self._set_config); self.settings.config_applied.connect(self.single.notify_config_changed); self.nav.currentRowChanged.connect(self.stack.setCurrentIndex); self.nav.setCurrentRow(0)
         root = QWidget(); layout = QHBoxLayout(root); layout.addWidget(self.nav, 1); layout.addWidget(self.stack, 4); self.setCentralWidget(root)
+        self._shutdown_pool = QThreadPool.globalInstance()
+        self._shutdown_requested = False
+        self._shutdown_timer = QTimer(self)
+        self._shutdown_timer.setInterval(100)
+        self._shutdown_timer.timeout.connect(self._check_shutdown)
+
+    def closeEvent(self, event):
+        if not self._shutdown_requested:
+            self._shutdown_requested = True
+            Worker.cancel_all()
+            self._shutdown_pool.clear()
+        if self._shutdown_pool.activeThreadCount():
+            event.ignore()
+            self.setEnabled(False)
+            self.statusBar().showMessage("Closing: queued work cancelled; waiting for active operations to finish…")
+            self._shutdown_timer.start()
+        else:
+            self._shutdown_timer.stop()
+            event.accept()
+
+    def _check_shutdown(self):
+        if self._shutdown_pool.activeThreadCount() == 0:
+            self._shutdown_timer.stop()
+            self.close()
     def _set_config(self, config: RuntimeLLMConfig): self._config = config
     def _research_state_for_single(self):
         state = dict(self.mutation.get_research_summary_state())

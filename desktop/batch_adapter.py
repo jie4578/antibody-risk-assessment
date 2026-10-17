@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 
 from batch_analysis import batch_analysis
-from core import analyze_sequence, normalize_sequence
+from core import CURRENT_RULE_VERSION, analyze_sequence, normalize_sequence
 from input_parser import parse_fasta
 from desktop.column_mapping import apply_mapping, infer_smart_mapping
 from desktop.chain_inference import infer_chain
@@ -32,6 +32,7 @@ class BatchRecord:
     risks: list = field(default_factory=list)
     vh_sequence: str = ""
     vl_sequence: str = ""
+    rule_version: str = CURRENT_RULE_VERSION
 
 
 @dataclass

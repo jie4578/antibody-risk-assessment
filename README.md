@@ -12,8 +12,10 @@ review, not an autonomous scientific decision-maker.
 
 ## What it does
 
-- **Single Analysis**: paired VH/VL sequence validation, CDR/framework-aware
-  PTM and chemical-liability motif scanning, and deterministic rule scoring.
+- **Single Analysis**: single-chain rule screening of the first sequence
+  input, PTM/chemical-liability scanning, and deterministic scoring. The
+  separate VL partner is used for paired ML estimates only. Desktop CDR
+  regions use fixed sequence indices, without automatic antibody numbering.
 - **Batch Analysis**: CSV, XLSX, and FASTA import with flexible column mapping,
   chain inference, per-chain analysis, and CSV/XLSX export.
 - **Mutation Workspace**: validate a mutation, compare original and mutant
@@ -41,6 +43,11 @@ It is not a probability, experimental measurement, global developability
 score, clinical predictor, efficacy predictor, affinity predictor, or wet-lab
 replacement. CDR weighting and heuristic PTM candidates remain computational
 rules and require experimental verification.
+
+Unreleased audit fixes introduce the explicit `overlap_v2` rule version for
+overlapping N-glycosylation candidates. Historical RULE48 validation remains
+pinned to `frozen_v1`; the scoring formula and stored benchmark results are
+unchanged. See [the audit repair notes](docs/AUDIT_REMEDIATION.md).
 
 The ESM2 models estimate selected experimental properties from a frozen,
 internal AIntibody benchmark. Rule findings and ML estimates are separate

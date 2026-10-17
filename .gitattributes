@@ -1,0 +1,2 @@
+# This immutable result is sealed by its byte digest; preserve LF on Windows.
+validation/external_developability/phase8c_hic_external_result.json text eol=lf

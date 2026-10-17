@@ -148,6 +148,8 @@ def _sequence_section(state: Any) -> Dict[str, Any]:
         output["sequence_length"] = raw["sequence_length"]
     if raw.get("rule_result_id") is not None:
         output["rule_result_id"] = raw["rule_result_id"]
+    if raw.get("rule_version") is not None:
+        output["rule_version"] = raw["rule_version"]
     return output
 
 
@@ -208,7 +210,7 @@ def _mutation_section(value: Any) -> Optional[Dict[str, Any]]:
         "antibody_id", "chain", "mutation", "original_score", "mutant_score",
         "delta_score", "original_total_sites", "mutant_total_sites", "delta_total_sites",
         "original_cdr_sites", "mutant_cdr_sites", "delta_cdr_sites",
-        "original_level", "mutant_level", "original_sequence", "mutant_sequence",
+        "original_level", "mutant_level", "original_sequence", "mutant_sequence", "rule_version",
     )
     output = {key: raw[key] for key in allowed if key in raw}
     for key in ("removed_risks", "added_risks", "unchanged_risks"):
@@ -330,6 +332,10 @@ class ResearchDecisionSummary:
             lines.extend(["Outdated — evidence has changed. Rebuild Summary.", ""])
         lines.extend(["Sequence Liability Screening", "----------------------------"])
         sequence = self.sequence_analysis
+        if sequence.get("chain_context"):
+            lines.append(str(sequence["chain_context"]))
+        if sequence.get("rule_version"):
+            lines.append("Scientific rule version: " + str(sequence["rule_version"]))
         if sequence.get("calculated_score") is None and sequence.get("total_sites") is None:
             lines.append("Rule-based screening result not available.")
         else:
@@ -375,6 +381,8 @@ class ResearchDecisionSummary:
             lines.append("No mutation hypothesis is included in this summary.")
         else:
             mutation = self.mutation_analysis
+            if mutation.get("rule_version"):
+                lines.append("Mutation scientific rule version: " + str(mutation["rule_version"]))
             for label, key in (("Mutation", "mutation"), ("Chain", "chain"), ("Baseline calculated rule score", "original_score"), ("Mutant calculated rule score", "mutant_score"), ("Score delta", "delta_score")):
                 if mutation.get(key) is not None:
                     lines.append(f"{label}: {mutation[key]}")
@@ -430,6 +438,32 @@ def build_research_summary(state: Any) -> ResearchDecisionSummary:
     mutation_ml = _mutation_ml_section(_get(state, "mutation_ml", default=None))
     literature = tuple(_literature_section(_get(state, "literature_evidence", "selected_literature", "literature", default=None)))
     gaps: List[str] = []
+    excluded_mutation_context = False
+    if mutation is not None:
+        expected = sequence.get("sequence_hashes", {})
+        original_hash = mutation.get("sequence_hashes", {}).get("original_hash")
+        chain = str(mutation.get("chain", "")).upper()
+        chain_hash = expected.get(chain) if chain in {"VH", "VL"} else None
+        matches_sequence = bool(original_hash and (original_hash == chain_hash if chain in {"VH", "VL"} else original_hash in expected.values()))
+        single_id, mutation_id = sequence.get("antibody_id"), mutation.get("antibody_id")
+        matches_id = not (single_id and mutation_id and single_id != mutation_id)
+        if not matches_sequence or not matches_id:
+            gaps.append("Mutation evidence excluded: baseline sequence/chain or antibody identity does not match the current analysis, or cannot be verified.")
+            mutation = None
+            mutation_ml = None
+            excluded_mutation_context = True
+    if mutation_ml is not None:
+        metadata = mutation_ml.get("metadata", {}) or {}
+        hashes = sequence.get("sequence_hashes", {})
+        chain = str((mutation or {}).get("chain", "")).upper()
+        baseline_matches = all(hashes.get(name) and metadata.get(f"baseline_{name.lower()}_hash") == hashes[name] for name in ("VH", "VL"))
+        other = "VL" if chain == "VH" else "VH"
+        mutant_hash = (mutation or {}).get("sequence_hashes", {}).get("mutant_hash")
+        mutant_matches = chain in {"VH", "VL"} and mutant_hash and metadata.get(f"mutant_{chain.lower()}_hash") == mutant_hash and metadata.get(f"mutant_{other.lower()}_hash") == hashes.get(other)
+        if not baseline_matches or not mutant_matches:
+            gaps.append("Mutation ML evidence excluded: baseline sequence identity does not match the current analysis.")
+            mutation_ml = None
+            excluded_mutation_context = True
     if ml is None:
         gaps.append("Experimental ML estimates have not been calculated.")
     if not literature:
@@ -447,7 +481,7 @@ def build_research_summary(state: Any) -> ResearchDecisionSummary:
         LITERATURE_LIMITATION,
     )
     source_provenance = _plain(_get(state, "provenance", default={}))
-    if not isinstance(source_provenance, Mapping):
+    if excluded_mutation_context or not isinstance(source_provenance, Mapping):
         source_provenance = {}
     provenance: Dict[str, Any] = dict(source_provenance)
     provenance.setdefault("sequence_hashes", sequence.get("sequence_hashes", {}))

@@ -14,7 +14,7 @@ from typing import Any, Mapping
 
 import pandas as pd
 
-from core import analyze_sequence, normalize_sequence
+from core import FROZEN_RULE_VERSION, analyze_sequence, normalize_sequence
 from scoring import CDR_REGIONS, PTM_CATEGORIES, compute_risk_score
 from validation.schemas.dataset_schema import clean_text, sequence_hash as make_sequence_hash
 
@@ -88,7 +88,7 @@ def _safe_number(value: Any) -> Any:
 def _analyze_chain(sequence: Any, chain: str) -> dict[str, Any]:
     normalized = normalize_sequence(clean_text(sequence))
     try:
-        result = analyze_sequence(normalized, *CDR_ARGS)
+        result = analyze_sequence(normalized, *CDR_ARGS, rule_version=FROZEN_RULE_VERSION)
         score = compute_risk_score([(chain, result)])
         errors = list(result.errors)
         status = "VALID" if not errors else ("MISSING" if not normalized else "INVALID")

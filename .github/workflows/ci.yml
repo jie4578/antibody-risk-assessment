@@ -12,6 +12,7 @@ jobs:
     env:
       # 无真实 key 时 DeepSeekLLM 构造需要非空 key(测试内 mock 客户端,不联网)
       DEEPSEEK_API_KEY: sk-ci-dummy
+      QT_QPA_PLATFORM: offscreen
     strategy:
       fail-fast: false
       matrix:
@@ -21,10 +22,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install core + dev deps
+      - name: Install core + Desktop + dev deps
         run: |
           python -m pip install --upgrade pip
-          pip install ".[dev]"
+          pip install ".[desktop,dev]"
       - name: Run tests
         run: python -m pytest -q
 
@@ -33,6 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DEEPSEEK_API_KEY: sk-ci-dummy
+      QT_QPA_PLATFORM: offscreen
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -45,3 +47,32 @@ jobs:
           pip install ".[all]"
       - name: Run tests (含可选模块)
         run: python -m pytest -q
+
+  desktop-integrity:
+    name: Desktop, wheel and offline validation (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    env:
+      QT_QPA_PLATFORM: offscreen
+      DEEPSEEK_API_KEY: sk-ci-dummy
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Desktop and test dependencies
+        run: python -m pip install ".[desktop,dev]"
+      - name: Application and installed-wheel smoke tests
+        run: python -m pytest -q
+      - name: Offline validation integrity (no private data bundle required)
+        run: >-
+          python -m pytest -q
+          validation/tests/test_audit_compatibility.py
+          validation/tests/test_runtime_embedding_parity.py
+          validation/tests/test_phase8_documentation.py
+          validation/external_developability/tests/test_phase8c_hic_external_evaluation.py

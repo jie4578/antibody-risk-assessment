@@ -10,7 +10,7 @@ from desktop.batch_adapter import BatchResult
 EXPORT_COLUMNS = [
     "antibody_id", "VH_length", "VL_length", "risk_score", "risk_level",
     "total_sites", "CDR_sites", "PTM_sites", "liability_sites",
-    "analysis_status", "warnings",
+    "analysis_status", "warnings", "rule_version",
 ]
 
 
@@ -29,6 +29,7 @@ def summary_frame(result: BatchResult) -> pd.DataFrame:
             "liability_sites": record.liability_sites,
             "analysis_status": record.status,
             "warnings": "; ".join(record.warnings),
+            "rule_version": record.rule_version,
         })
     return pd.DataFrame(rows, columns=EXPORT_COLUMNS)
 

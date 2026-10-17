@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from PySide6.QtCore import QThreadPool
 from PySide6.QtWidgets import QComboBox, QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QPlainTextEdit, QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
 
-from core import normalize_sequence, validate_sequence
+from core import CURRENT_RULE_VERSION, normalize_sequence, validate_sequence
 from desktop.mutation_adapter import MutationComparison, compare_mutation
 from desktop.literature_context import mutation_risk_context
 from desktop.ml_adapter import DesktopMLService, STATUS_READY, build_mutation_pairs, compare_mutation_ml, sequence_hash, status_code, status_message
@@ -20,6 +20,7 @@ class MutationPage(QWidget):
     def __init__(self, parent=None, open_literature=None, ml_service=None, on_state_changed=None):
         super().__init__(parent)
         self._on_state_changed = on_state_changed
+        self._rule_generation = 0
         self.pool = QThreadPool.globalInstance(); self._worker = None; self._ml_worker = None; self._comparison = None; self._ml_comparison = None; self._selected_candidate = None; self._candidates = []; self._open_literature = open_literature; self._ml_service = ml_service or DesktopMLService(); self._ml_generation = 0; self._ml_snapshot = None; self.ml_provenance = None; self._last_ml_status = {}
         self.antibody_id = QLineEdit(); self.chain = QComboBox(); self.chain.addItems(["VH", "VL", "Unspecified"])
         self.sequence = QPlainTextEdit(); self.sequence.setPlaceholderText("Paste VH sequence"); self.vh_sequence = self.sequence; self.vl_sequence = QPlainTextEdit(); self.vl_sequence.setPlaceholderText("Paste VL sequence (required for ML comparison)")
@@ -27,7 +28,7 @@ class MutationPage(QWidget):
         self.simulate_button = QPushButton("Simulate Mutation"); self.clear_button = QPushButton("Clear"); self.add_candidate_button = QPushButton("Add Candidate")
         self.simulate_button.clicked.connect(self.simulate); self.clear_button.clicked.connect(self.clear); self.add_candidate_button.clicked.connect(self.add_candidate)
         self.sequence.textChanged.connect(self._baseline_edited); self.vl_sequence.textChanged.connect(self._baseline_edited); self.antibody_id.textChanged.connect(self._baseline_edited); self.chain.currentTextChanged.connect(self._chain_changed); self.mutation.textChanged.connect(self._mutation_edited)
-        self.message = QLabel(); self.warning = QLabel("This is rule-based in-silico mutation simulation. Score/risk changes do not demonstrate preserved binding, affinity, structure, expression, developability, or experimental success.")
+        self.message = QLabel(); self.warning = QLabel(f"Scientific rules: {CURRENT_RULE_VERSION}. This is rule-based in-silico mutation simulation. Score/risk changes do not demonstrate preserved binding, affinity, structure, expression, developability, or experimental success.")
         self.original_summary = QLabel("Length: - | Calculated Score: - | Risk Level: - | Total Sites: - | CDR Sites: -")
         self.mutant_summary = QLabel("Mutation: - | Length: - | Calculated Score: - | Risk Level: - | Total Sites: - | CDR Sites: -")
         self.comparison = QLabel("Calculated Score: - → - (Δ -) | Total Sites: - → - (Δ -) | CDR Sites: - → - (Δ -)")
@@ -77,7 +78,28 @@ class MutationPage(QWidget):
         self._baseline_edited()
 
     def _mutation_edited(self):
+        self._rule_generation += 1
+        self._comparison = None
+        self._selected_candidate = None
+        self._reset_results()
         self._invalidate_ml()
+
+    def _rule_input_snapshot(self):
+        return (self.antibody_id.text().strip(), self.chain.currentText(),
+                normalize_sequence(self.vh_sequence.toPlainText()),
+                normalize_sequence(self.vl_sequence.toPlainText()),
+                self.mutation.text().strip().upper())
+
+    def _rule_finished(self, worker, token, snapshot, result=None, error=None):
+        if self._worker is worker:
+            self._worker = None
+            self.simulate_button.setEnabled(True)
+        if token != self._rule_generation or snapshot != self._rule_input_snapshot():
+            return
+        if error is not None:
+            self._error(error)
+        else:
+            self._done(result)
 
     def _active_comparison(self):
         return self._selected_candidate or self._comparison
@@ -212,6 +234,7 @@ class MutationPage(QWidget):
         self.add_candidate_button.setEnabled(enabled); self.simulate_button.setEnabled(not bool(self._worker))
 
     def load_sequence(self, antibody_id, sequence, chain="Unspecified", vh_sequence=None, vl_sequence=None):
+        self._rule_generation += 1
         self._worker = None; self._comparison = None; self._selected_candidate = None; self._candidates.clear(); self.candidates.setRowCount(0)
         canonical_chain = chain if chain in {"VH", "VL", "Unspecified"} else "Unspecified"
         baseline_vh = sequence if vh_sequence is None and canonical_chain != "VL" else (vh_sequence or "")
@@ -221,9 +244,9 @@ class MutationPage(QWidget):
         self.antibody_id.blockSignals(False); self.vh_sequence.blockSignals(False); self.vl_sequence.blockSignals(False); self.chain.blockSignals(False); self._invalidate_ml(); self._reset_results(); self.simulate_button.setEnabled(True)
 
     def _baseline_edited(self):
+        self._rule_generation += 1
+        self._comparison = None; self._selected_candidate = None; self._candidates.clear(); self.candidates.setRowCount(0); self._reset_results()
         self._invalidate_ml()
-        if self._worker is None:
-            self._comparison = None; self._selected_candidate = None; self._candidates.clear(); self.candidates.setRowCount(0); self._reset_results()
 
     def _reset_results(self):
         self.original_summary.setText("Length: - | Calculated Score: - | Risk Level: - | Total Sites: - | CDR Sites: -")
@@ -239,8 +262,12 @@ class MutationPage(QWidget):
         self._invalidate_ml(); self._selected_candidate = None; self.message.clear(); self.simulate_button.setEnabled(False)
         mutation = self.mutation.text().strip().upper()
         self.mutation.setText(mutation)
-        self._worker = Worker(compare_mutation, self.sequence.toPlainText(), mutation, self.antibody_id.text(), self.chain.currentText())
-        self._worker.signals.finished.connect(self._done); self._worker.signals.error.connect(self._error); self.pool.start(self._worker)
+        worker = Worker(compare_mutation, self.sequence.toPlainText(), mutation, self.antibody_id.text(), self.chain.currentText())
+        self._worker = worker
+        token, snapshot = self._rule_generation, self._rule_input_snapshot()
+        worker.signals.finished.connect(lambda result, w=worker, t=token, s=snapshot: self._rule_finished(w, t, s, result=result))
+        worker.signals.error.connect(lambda error, w=worker, t=token, s=snapshot: self._rule_finished(w, t, s, error=error))
+        self.pool.start(worker)
 
     def _done(self, result: MutationComparison):
         self._worker = None; self._comparison = result; self._selected_candidate = None; self.simulate_button.setEnabled(True); self._render(result); self.add_candidate_button.setEnabled(True); self._reset_ml_result()

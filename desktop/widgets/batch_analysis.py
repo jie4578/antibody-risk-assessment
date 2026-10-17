@@ -72,7 +72,8 @@ class BatchAnalysisPage(QWidget):
         if sequence: self._open_mutation(record.antibody_id, sequence, chain)
     def _selected_record(self, row):
         if row < 0 or row >= self.table.rowCount(): return None
-        return next((r for r in self.records if r.antibody_id == self.table.item(row, 0).text()), None)
+        item = self.table.item(row, 0)
+        return item.data(32) if item is not None else None
     def analyze(self):
         if not getattr(self, "_path", None) or self._active_worker: return
         mapping, chain = self._resolve_input()
@@ -99,15 +100,20 @@ class BatchAnalysisPage(QWidget):
         for r in rows:
             row = self.table.rowCount(); self.table.insertRow(row); values = [r.antibody_id, r.vh_length, r.vl_length, "N/A" if r.risk_score != r.risk_score else f"{r.risk_score:.2f}", r.risk_level, r.total_sites, r.cdr_sites, r.ptm_sites, r.liability_sites, r.status]
             for col, value in enumerate(values): self.table.setItem(row, col, QTableWidgetItem(str(value)))
+            self.table.item(row, 0).setData(32, r)
     def show_detail(self):
         row = self.table.currentRow()
-        if row < 0 or row >= self.table.rowCount(): return
-        record = next((r for r in self.records if r.antibody_id == self.table.item(row, 0).text()), None)
+        if row < 0 or row >= self.table.rowCount():
+            self.detail.setText("Select an antibody to inspect details.")
+            self.detail_table.setRowCount(0)
+            self.refresh_transfer_actions()
+            return
+        record = self._selected_record(row)
         if not record: return
         self.refresh_transfer_actions()
-        categories = {category: sum(risk.category == category for _, risk in record.risks) for category in ("脱酰胺", "异构化", "氧化", "N-糖基化", "O-糖基化")}
+        categories = {category: sum(risk.category == category for _, risk in record.risks) for category in ("脱酰胺化", "异构化", "氧化", "N-糖基化", "O-糖基化")}
         category_text = " | ".join(f"{category}: {count}" for category, count in categories.items())
-        self.detail.setText(f"{record.antibody_id} | VH {record.vh_length} | VL {record.vl_length} | Score {record.risk_score} | {record.risk_level} | {record.status}\nCategories: {category_text}\nWarnings: {'; '.join(record.warnings) or 'None'}")
+        self.detail.setText(f"{record.antibody_id} | VH {record.vh_length} | VL {record.vl_length} | Score {record.risk_score} | {record.risk_level} | {record.status}\nScientific rules: {record.rule_version}\nCategories: {category_text}\nWarnings: {'; '.join(record.warnings) or 'None'}")
         self.detail_table.setRowCount(0)
         for chain, risk in record.risks:
             rr = self.detail_table.rowCount(); self.detail_table.insertRow(rr); values = [chain, risk.position, risk.motif, risk.category, risk.region]

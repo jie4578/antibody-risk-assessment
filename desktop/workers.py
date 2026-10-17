@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import re
+import threading
+import weakref
 from PySide6.QtCore import QObject, QRunnable, Signal, Slot
 
 from desktop.errors import normalize_error
@@ -12,18 +14,43 @@ class WorkerSignals(QObject):
 
 
 class Worker(QRunnable):
+    _instances = weakref.WeakSet()
+    _lock = threading.Lock()
+
     def __init__(self, function, *args, secrets=None, **kwargs):
         super().__init__()
         self.function, self.args, self.kwargs = function, args, kwargs
         self.secrets = [s for s in (secrets or []) if s]
         self.signals = WorkerSignals()
+        self._cancelled = threading.Event()
+        with self._lock:
+            self._instances.add(self)
+
+    def cancel(self):
+        """Suppress queued work/results; running callables finish cooperatively."""
+        self._cancelled.set()
+
+    @classmethod
+    def cancel_all(cls):
+        with cls._lock:
+            workers = list(cls._instances)
+        for worker in workers:
+            worker.cancel()
 
     @Slot()
     def run(self):
         try:
-            self.signals.finished.emit(self.function(*self.args, **self.kwargs))
+            if self._cancelled.is_set():
+                return
+            result = self.function(*self.args, **self.kwargs)
+            if not self._cancelled.is_set():
+                self.signals.finished.emit(result)
         except Exception as exc:
-            self.signals.error.emit(sanitize_error(str(exc), self.secrets))
+            if not self._cancelled.is_set():
+                self.signals.error.emit(sanitize_error(str(exc), self.secrets))
+        finally:
+            with self._lock:
+                self._instances.discard(self)
 
 
 def sanitize_error(message: str, secrets=None) -> str:

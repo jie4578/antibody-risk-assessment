@@ -1,4 +1,5 @@
 import copy
+import hashlib
 import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -44,6 +45,9 @@ def ml_state():
 
 def mutation_state():
     return {
+        "antibody_id": "Ab-001",
+        "original_sequence": VH,
+        "mutant_sequence": VH[:54] + "Q" + VH[55:],
         "mutation": "N55Q",
         "chain": "VH",
         "original_score": 66.3,
@@ -60,7 +64,13 @@ def mutation_ml_state():
         "baseline": {"hic": 4.2, "probability": 0.31},
         "mutant": {"hic": 4.0, "probability": 0.27},
         "delta": {"hic": -0.2, "probability": -0.04},
-        "metadata": {"mutation_effect_validation": "not_validated"},
+        "metadata": {
+            "mutation_effect_validation": "not_validated",
+            "baseline_vh_hash": hashlib.sha256(VH.encode()).hexdigest(),
+            "baseline_vl_hash": hashlib.sha256(VL.encode()).hexdigest(),
+            "mutant_vh_hash": hashlib.sha256((VH[:54] + "Q" + VH[55:]).encode()).hexdigest(),
+            "mutant_vl_hash": hashlib.sha256(VL.encode()).hexdigest(),
+        },
     }
 
 

@@ -16,7 +16,7 @@ from typing import Any, Callable, Mapping
 import numpy as np
 
 from core import normalize_sequence, validate_sequence
-from validation.ml_benchmark.esm2_embeddings import file_sha256
+from ml_inference.esm2_runtime import file_sha256
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -219,10 +219,7 @@ class FrozenMLPredictor:
         else:
             try:
                 import torch
-                from validation.ml_benchmark.esm2_embeddings import (
-                    extract_paired_embeddings,
-                    load_frozen_model,
-                )
+                from ml_inference.esm2_runtime import extract_pair, load_frozen_model
             except ImportError as error:
                 raise ESMDependencyError("torch and transformers are required for local ESM2 inference") from error
             if self._esm_runtime is None:
@@ -240,11 +237,8 @@ class FrozenMLPredictor:
                     raise ModelRevisionError("Loaded ESM2 revision differs from the frozen revision")
                 self._esm_runtime = (tokenizer, model, torch, torch.device(provenance["device"]))
             tokenizer, model, torch_module, device = self._esm_runtime
-            import pandas as pd
-
-            frame = pd.DataFrame({"sequence_hash": ["inference"], "VH": [vh], "VL": [vl]})
             try:
-                embedding = extract_paired_embeddings(frame, tokenizer, model, torch_module, device).paired_embeddings
+                embedding = extract_pair(vh, vl, tokenizer, model, torch_module, device)
             except Exception as error:
                 raise MLInferenceError(f"Local ESM2 inference failed: {error}") from error
         if embedding.shape != (1, ESM_DIMENSION) or not np.isfinite(embedding).all():

@@ -113,9 +113,5 @@ def test_jain_inspection_reports_missing_files_without_fabrication(tmp_path):
 
 
 def test_core_and_scoring_match_frozen_baseline():
-    repo = ROOT.parent
-    baseline = "d1487ed74bdfc52fb0b2015a25c4e91ee90af66d"
-    for name in ("core.py", "scoring.py"):
-        current = (repo / name).read_bytes()
-        expected = subprocess.check_output(["git", "show", f"{baseline}:{name}"], cwd=repo)
-        assert hashlib.sha256(current).digest() == hashlib.sha256(expected).digest(), name
+    from validation.frozen_baseline import assert_frozen_rule_compatibility
+    assert_frozen_rule_compatibility()

@@ -148,6 +148,7 @@ def tool_scan_antibody(sequence: str) -> str:
     return (
         f"序列长度 {result.sequence_length} aa；"
         f"规则风险评分 {score.overall_score}（{score.risk_level}）；"
+        f"规则版本 {result.metadata.get('rule_version', 'frozen_v1')}；"
         f"命中风险基序: " + ("; ".join(hits) if hits else "无")
     )
 
@@ -175,7 +176,7 @@ def tool_mutate_scan(sequence: str, mutation: str) -> str:
     """
     from collections import Counter
 
-    from core import analyze_sequence, mutate_and_rescan
+    from core import CURRENT_RULE_VERSION, analyze_sequence, mutate_and_rescan
 
     report, risks, summary, mutated = mutate_and_rescan(sequence, mutation, *_default_cdr())
     if "突变失败" in summary:
@@ -190,6 +191,7 @@ def tool_mutate_scan(sequence: str, mutation: str) -> str:
         f"突变前风险类别计数: {before}\n"
         f"突变后风险类别计数: {after}\n"
         f"突变后命中: {hits}"
+        f"\n规则版本 {CURRENT_RULE_VERSION}"
     )
 
 
@@ -205,7 +207,7 @@ def tool_risk_score(sequence: str) -> str:
     if result.errors:
         return f"错误: {'；'.join(result.errors)}"
     score = compute_risk_score([("sequence", result)])
-    return f"风险评分 {score.overall_score}（{score.risk_level}）"
+    return f"风险评分 {score.overall_score}（{score.risk_level}）；规则版本 {result.metadata.get('rule_version', 'frozen_v1')}"
 
 
 def tool_predict_risk(sequence: str) -> str:
@@ -302,7 +304,7 @@ def tool_batch_analysis(csv_path: str = "", csv_text: str = "") -> str:
             f"- {row['antibody_id']}: status={row['analysis_status']} "
             f"PTM={row['PTM_risk_count']} liability={row['liability_risk_count']} "
             f"total={row['total_risk_count']} risk_score={row['risk_score']} "
-            f"risk_level={row['risk_level']}{warn}"
+            f"risk_level={row['risk_level']} rule_version={row['rule_version']}{warn}"
         )
     return "\n".join(lines)
 

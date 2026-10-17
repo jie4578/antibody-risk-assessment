@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import re
 
-from core import VALID_AMINO_ACIDS, analyze_sequence, mutate_sequence, normalize_sequence, validate_sequence
+from core import CURRENT_RULE_VERSION, VALID_AMINO_ACIDS, analyze_sequence, mutate_sequence, normalize_sequence, validate_sequence
 from scoring import compute_risk_score
 
 
@@ -52,6 +52,7 @@ class MutationComparison:
     removed_risks: tuple[RiskSite, ...]
     added_risks: tuple[RiskSite, ...]
     unchanged_risks: tuple[RiskSite, ...]
+    rule_version: str = CURRENT_RULE_VERSION
 
 
 def normalize_mutation(mutation: str) -> str:

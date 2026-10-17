@@ -21,6 +21,8 @@ class LiteraturePage(QWidget):
         super().__init__(parent)
         self.pool = QThreadPool.globalInstance()
         self._worker = None
+        self._selected = None
+        self._search_generation = 0
         self._results = []; self._context = None; self._summary_changed_callback = None
         self.query = QLineEdit(); self.query.setPlaceholderText("antibody deamidation NG motif CDR")
         self.source = QComboBox(); self.source.addItem("Auto", "auto"); self.source.addItem("Europe PMC", "europepmc"); self.source.addItem("PubMed", "pubmed")
@@ -43,16 +45,31 @@ class LiteraturePage(QWidget):
         detail = QFormLayout(); detail.addRow("Title", self.title); detail.addRow("Authors", self.authors); detail.addRow("Journal / Year", self.journal); detail.addRow("PMID", self.pmid); detail.addRow("DOI", self.doi); detail.addRow("PMCID", self.pmcid); detail.addRow("Source", self.source_label); detail.addRow("Relevance", self.relevance); detail.addRow("Abstract", self.abstract); detail.addRow("Evidence / relevance", self.explanation)
         buttons = QHBoxLayout(); buttons.addWidget(self.search_button); buttons.addStretch(); buttons.addWidget(self.send_evidence_button); buttons.addWidget(self.open_source_button)
         layout = QVBoxLayout(self); layout.addWidget(QLabel("Literature Search")); layout.addWidget(self.context_banner); layout.addWidget(self.external_query); layout.addLayout(form); layout.addLayout(buttons); layout.addWidget(self.status); layout.addWidget(self.privacy); layout.addWidget(QLabel("Results")); layout.addWidget(self.results_table); layout.addWidget(QLabel("Selected Paper")); layout.addLayout(detail)
+        self.results_table.currentCellChanged.connect(lambda *_: self._select_result())
+        self.query.textChanged.connect(self._query_changed)
+        self.source.currentIndexChanged.connect(self._query_changed)
+        self.max_results.valueChanged.connect(self._query_changed)
+
+    def _query_changed(self, *_):
+        self._search_generation += 1
+        self._results = []
+        self._refresh_table()
 
     def load_context(self, context: LiteratureContext):
-        self._context = context; self.context_banner.setText(f"Context from {context.source.title()} Analysis\n{context.display_summary}"); self.external_query.setText(f"External query: {context.safe_query}"); self.context_banner.show(); self.external_query.show(); self.query.setText(context.safe_query); self._results = []; self._selected = None; self._refresh_table(); self._clear_detail(); self.status.setText("Review the external query, then click Search.")
+        self._search_generation += 1
+        self._context = context; self.context_banner.setText(f"Context from {context.source.title()} Analysis\n{context.display_summary}"); self.external_query.setText(f"External query: {context.safe_query}"); self.context_banner.show(); self.external_query.show(); self.query.setText(context.safe_query); self._results = []; self._refresh_table(); self.status.setText("Review the external query, then click Search.")
 
     def clear_context(self):
-        self._context = None; self.context_banner.clear(); self.external_query.clear(); self.context_banner.hide(); self.external_query.hide(); self._results = []; self._selected = None; self._refresh_table(); self._clear_detail(); self.status.clear()
+        self._search_generation += 1
+        self._context = None; self.context_banner.clear(); self.external_query.clear(); self.context_banner.hide(); self.external_query.hide(); self._results = []; self._refresh_table(); self.status.clear()
 
     def _clear_detail(self):
+        had_selection = self._selected is not None
+        self._selected = None
         for widget in (self.title, self.authors, self.journal, self.pmid, self.doi, self.pmcid, self.source_label, self.relevance, self.abstract, self.explanation): widget.clear()
         self.open_source_button.setEnabled(False); self.send_evidence_button.setEnabled(False)
+        if had_selection and callable(self._summary_changed_callback):
+            self._summary_changed_callback()
 
     def search(self):
         if self._worker is not None:
@@ -62,7 +79,21 @@ class LiteraturePage(QWidget):
             return
         self.search_button.setEnabled(False); self.status.setText("Searching…")
         self._worker = Worker(search_desktop_literature, self.query.text(), source=self.source.currentData(), max_results=self.max_results.value())
-        self._worker.signals.finished.connect(self._done); self._worker.signals.error.connect(self._error); self.pool.start(self._worker)
+        worker, token = self._worker, self._search_generation
+        worker.signals.finished.connect(lambda result, w=worker, t=token: self._search_finished(w, t, result=result))
+        worker.signals.error.connect(lambda error, w=worker, t=token: self._search_finished(w, t, error=error))
+        self.pool.start(worker)
+
+    def _search_finished(self, worker, token, result=None, error=None):
+        if self._worker is worker:
+            self._worker = None
+            self.search_button.setEnabled(True)
+        if token != self._search_generation:
+            return
+        if error is not None:
+            self._error(error)
+        else:
+            self._done(result)
 
     def _done(self, results):
         self._worker = None; self.search_button.setEnabled(True); self._results = list(results or []); self._refresh_table(); self.status.setText("No literature results found." if not self._results else f"Found {len(self._results)} result(s).")
@@ -89,6 +120,8 @@ class LiteraturePage(QWidget):
         return mapping.get(normalized.code, "Literature search failed.")
 
     def _refresh_table(self):
+        self._clear_detail()
+        self.results_table.blockSignals(True)
         rows = visible_results(self._results, self.filter.currentText()); self.results_table.setRowCount(0)
         for result in rows:
             row = self.results_table.rowCount(); self.results_table.insertRow(row)
@@ -96,14 +129,18 @@ class LiteraturePage(QWidget):
                 self.results_table.setItem(row, col, QTableWidgetItem(str(value)))
             self.results_table.item(row, 0).setData(32, result)
         self.open_source_button.setEnabled(False); self.send_evidence_button.setEnabled(False)
+        self.results_table.blockSignals(False)
 
     def _select_result(self):
-        item = self.results_table.currentItem()
+        row = self.results_table.currentRow()
+        item = self.results_table.item(row, 0) if row >= 0 else None
         result = item.data(32) if item else None
         if not isinstance(result, DesktopEvidence):
+            self._clear_detail()
             return
+        changed = self._selected is not result
         self.title.setText(result.title or "-"); self.authors.setText(", ".join(result.authors) or "-"); self.journal.setText(f"{result.journal or '-'} / {result.year or '-'}"); self.pmid.setText(result.pmid or "-"); self.doi.setText(result.doi or "-"); self.pmcid.setText(result.pmcid or "-"); self.source_label.setText(result.source or "-"); self.relevance.setText(result.relevance or "-"); self.abstract.setText(result.abstract or "-"); self.explanation.setText(result.relevance_reason or "-"); self.open_source_button.setEnabled(bool(result.source_url)); self.send_evidence_button.setEnabled(True); self._selected = result
-        if callable(self._summary_changed_callback):
+        if changed and callable(self._summary_changed_callback):
             self._summary_changed_callback()
 
     def set_open_ai(self, callback):
