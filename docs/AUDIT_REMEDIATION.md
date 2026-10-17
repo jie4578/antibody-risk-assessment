@@ -62,7 +62,7 @@ datasets, labels, or model weights. The larger historical validation suite
 still requires the local reproducibility bundle. Real Provider compatibility
 and interactive Windows use require a separate manual check.
 
-Local verification: application suite 605 passed, 4 deselected, 5 warnings;
+Local verification: application suite 607 passed, 4 deselected, 5 warnings;
 project validation suites 185 passed; offline CI subset 12 passed. The subset
 is included in the validation coverage, not an additional scientific study.
 The 22 privacy regressions are included in the application total. No Phase 8C
@@ -74,6 +74,12 @@ was absent, the optional-dependency job did not install pytest, and the offline
 wheel build lacked setuptools on Windows. CI now installs the Linux Qt runtime
 libraries, the optional job installs `all,dev`, and `dev` explicitly includes
 the setuptools build backend. No test is skipped to hide these failures.
+Linux also exposed intermittent QObject destruction crashes after all test
+assertions finished. The test harness retains a session-owned QApplication,
+drains deferred deletes between tests and finishes workers/widget destruction
+before interpreter shutdown. Product event-loop behavior is unchanged.
+The offline parity test imports frozen sequence utilities using Bio.Align;
+the Desktop-integrity job explicitly installs Biopython for those checks.
 
 User-provided Windows screenshots confirm normal batch import, N55Q rule
 comparison, mutation edit invalidation, cross-antibody Summary exclusion,
