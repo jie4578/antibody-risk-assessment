@@ -19,6 +19,21 @@ Ollama and Mock are labelled as local/offline providers.
 
 Responses are checked for unsupported decision language and citations that are
 not present in the summary. A response that crosses the boundary is blocked.
+The explanation prompts also prohibit importing background knowledge,
+mechanistic effects, per-site severity, assumed antibody format, invented
+evidence tensions, or shared-residue relationships absent from the snapshot.
+Targeted bilingual guards reject known ungrounded CDR/functional-effect and
+shared-start/shared-residue claims, including hedged wording. A literal claim
+already recorded in the snapshot can be quoted; literature titles still need
+to be described as titles and GENERAL must remain GENERAL. These pattern
+checks are not a general semantic verifier: arbitrary paraphrases and all
+natural-language claims cannot be certified automatically. Named assertions
+about provenance `literature_identifiers`, `rule_result_id` and `sequence_hashes`
+types and empty states are checked against the actual snapshot, including
+joint English/Chinese claims. The prompt receives read-only shape facts; no
+array/string/object/null coercion or Summary schema change is performed.
+An inconsistent response is blocked, not silently rewritten. Human review remains
+required, and the deterministic summary is the source of truth.
 When the underlying summary changes, a previous explanation is marked
 historical and a new current summary must be built before another request.
 

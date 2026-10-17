@@ -54,6 +54,10 @@ class LiteraturePage(QWidget):
         self._search_generation += 1
         self._results = []
         self._refresh_table()
+        self.status.setText(
+            "Search inputs changed. Click Search to refresh results."
+            if self.query.text().strip() else "Enter a query, then click Search."
+        )
 
     def load_context(self, context: LiteratureContext):
         self._search_generation += 1

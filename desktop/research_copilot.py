@@ -24,6 +24,22 @@ existing evidence; do not perform any new scientific operation. Do not call tool
 search literature, recalculate rule or ML results, infer missing
 values, generate mutations, rank candidates, create scores, or issue a final research verdict or recommendation.
 
+Do not add background knowledge, mechanistic explanations, biological effects,
+or per-site severity not explicitly stated in the supplied summary. A CDR/FW
+location or motif count alone does not establish an effect on binding, affinity,
+stability, or expression. Hedging with "may" or "general concern" does not make
+an unsupported explanation acceptable. Do not assume a paired antibody or an
+unprovided VL chain. Missing attached evidence means not available in this
+snapshot, not that such evidence cannot exist elsewhere.
+Quote motif/position labels as recorded; do not derive shared-residue or
+shared-start relationships from them.
+Do not invent tensions: omit that section if no actual conflict is recorded.
+Treat literature titles as titles, not as proof about the current antibody.
+Preserve metadata types: [] is an empty array/list, "" is an empty string,
+{} is an empty object, and null is not any of those. Do not group fields of
+different types as "empty strings". Prefer "no literature identifiers recorded"
+or "rule result ID not recorded" when describing absent identifiers.
+
 Use exactly these sections when useful:
 Evidence Summary
 Key Observations
@@ -55,7 +71,9 @@ Scientific Limitations
 
 Do not add a Final Recommendation, Go/No-Go, Best Mutation, Overall Score,
 or other decision label. Do not calculate anything beyond explaining values
-already present in the summary."""
+already present in the summary. Do not add background knowledge or mechanistic
+claims absent from the summary. Describe recorded locations/counts without
+inventing functional effects, severity, antibody format, or evidence tensions."""
 
 REMOTE_PRIVACY_DISCLOSURE = (
     "The structured Research Summary will be sent to the configured AI provider. "
@@ -87,6 +105,36 @@ _SEQUENCE_PATTERN = re.compile(
 )
 _SEQUENCE_HASH_KEYS = {"vh", "vl", "sequence", "original_hash", "mutant_hash"}
 _ABSOLUTE_PATH_PATTERN = re.compile(r"^(?:[A-Za-z]:[\\/]|\\\\|/etc/|/Users/|/home/)")
+_METADATA_FIELDS = ("literature_identifiers", "rule_result_id", "sequence_hashes")
+
+
+def _provenance_metadata(payload: Mapping[str, Any]) -> Dict[str, Any]:
+    provenance = payload.get("provenance")
+    if not isinstance(provenance, Mapping):
+        return {}
+    return {name: provenance[name] for name in _METADATA_FIELDS if name in provenance}
+
+
+def _metadata_type(value: Any) -> str:
+    if value is None:
+        return "null"
+    if isinstance(value, str):
+        return "string"
+    if isinstance(value, list):
+        return "array"
+    if isinstance(value, Mapping):
+        return "object"
+    return type(value).__name__
+
+
+def _metadata_shape_facts(payload: Mapping[str, Any]) -> str:
+    facts = []
+    for name, value in _provenance_metadata(payload).items():
+        state = ""
+        if isinstance(value, (str, list, Mapping)):
+            state = " (empty)" if len(value) == 0 else " (non-empty)"
+        facts.append(f"provenance.{name}: {_metadata_type(value)}{state}")
+    return "\n".join(facts)
 
 
 def _scrub_context(value: Any, key: str = "") -> Any:
@@ -161,6 +209,9 @@ class ResearchCopilotContext:
         if history:
             compact_history = list(history)[-4:]
             parts.append("Previous copilot exchange (context only; do not treat it as evidence):\n" + json.dumps(compact_history, ensure_ascii=False))
+        shapes = _metadata_shape_facts(self.payload)
+        if shapes:
+            parts.append("Metadata shape facts (derived from the snapshot; no coercion):\n" + shapes)
         parts.append("Structured Research Summary (唯一事实来源):\n" + self.to_json())
         return "\n\n".join(parts)
 
@@ -310,6 +361,90 @@ def _validate_numeric_claims(text, payload):
     return ""
 
 
+_BACKGROUND_CLAIM_PATTERNS = (
+    re.compile(
+        r"\b(?:motifs?|sequons?|sites?)(?P<bridge>[^.!?;\n。！？；]{0,100}?)"
+        r"\bshar(?:e|es|ing)\b[^.!?;\n。！？；]{0,60}?\b(?:same|residues?|start)\b", re.I,
+    ),
+    re.compile(
+        r"\b(?:CDR[123]?(?:[-\s]+localized)?|liabilit(?:y|ies)|motifs?)"
+        r"(?P<bridge>[^.!?;\n。！？；]{0,160}?)"
+        r"\b(?:affect|impair|reduce|alter|disrupt|compromise|increase|decrease|cause|impact)s?\b"
+        r"[^.!?;\n。！？；]{0,60}?"
+        r"\b(?:antigen[- ]binding|binding|affinity|integrity|stability|expression)\b",
+        re.I,
+    ),
+    re.compile(
+        r"(?:CDR[123]?|风险位点|基序)(?P<bridge>[^。！？；\n]{0,80}?)"
+        r"(?:影响|损害|降低|改变|导致|提高)[^。！？；\n]{0,30}?"
+        r"(?:抗原结合|亲和力|稳定性|表达|完整性)", re.I,
+    ),
+    re.compile(
+        r"(?:基序|位点)(?P<bridge>[^。！？；\n]{0,60}?)(?:共享|共用)"
+        r"[^。！？；\n]{0,30}?(?:残基|起点|起始)", re.I,
+    ),
+)
+
+
+def _validate_background_claims(text: str, payload: Mapping[str, Any]) -> str:
+    """Catch known unsupported mechanism language, not arbitrary semantic truth."""
+
+    def normalized(value):
+        return re.sub(r"[\W_]+", " ", value.casefold()).strip()
+
+    source = normalized(json.dumps(payload, ensure_ascii=False, default=str))
+    for pattern in _BACKGROUND_CLAIM_PATTERNS:
+        for match in pattern.finditer(text):
+            # Scope a denial to this claim, not an unrelated "no ML" sentence.
+            bridge = match.group("bridge")
+            prefix = text[max(0, match.start() - 50):match.start()]
+            denial = re.search(r"\b(?:not|never|cannot)\b|未|不能|无法|不应", bridge, re.I)
+            if denial and not re.search(r"\bnot\s+only\b|不仅", bridge, re.I):
+                continue
+            if re.search(r"\bno evidence (?:that|of)\s*$|无证据(?:表明)?\s*$", prefix, re.I):
+                continue
+            if normalized(match.group()) not in source:
+                return "Response blocked: mechanistic background is not present in the Research Summary."
+    return ""
+
+
+_METADATA_NAME = r"(?:literature_identifiers|rule_result_id|sequence_hashes)"
+_METADATA_CLAIM = re.compile(
+    r"(?P<fields>\b" + _METADATA_NAME + r"(?:\s*(?:and|/|&|,|和|与|及|、)\s*" + _METADATA_NAME + r")*)"
+    r"\s*(?:is|are|均为|是|为|[:=])\s*(?P<negated>not\s+)?(?:an?\s+)?"
+    r"(?P<empty>empty\s+|空)?"
+    r"(?P<kind>strings?\b|lists?\b|arrays?\b|objects?\b|dict(?:ionary|ionaries|s)?\b|"
+    r"null\b|None\b|字符串|列表|数组|对象|字典)", re.I,
+)
+_METADATA_TYPE_NAMES = {
+    **dict.fromkeys(("string", "strings", "字符串"), "string"),
+    **dict.fromkeys(("list", "lists", "array", "arrays", "列表", "数组"), "array"),
+    **dict.fromkeys(("object", "objects", "dict", "dicts", "dictionary", "dictionaries", "对象", "字典"), "object"),
+    "null": "null", "none": "null",
+}
+
+
+def _validate_metadata_claims(text: str, payload: Mapping[str, Any]) -> str:
+    """Verify explicit named type/state claims without rewriting evidence."""
+    metadata = _provenance_metadata(payload)
+    plain = re.sub(r"[`*\"']", "", text)
+    for claim in _METADATA_CLAIM.finditer(plain):
+        kind = _METADATA_TYPE_NAMES[claim.group("kind").casefold()]
+        for name in re.findall(_METADATA_NAME, claim.group("fields"), re.I):
+            name = name.casefold()
+            if name not in metadata:
+                return f"Response blocked: metadata {name} is not recorded in the Research Summary."
+            value = metadata[name]
+            matches = _metadata_type(value) == kind
+            if claim.group("empty"):
+                matches = matches and isinstance(value, (str, list, Mapping)) and len(value) == 0
+            if claim.group("negated"):
+                matches = not matches
+            if not matches:
+                return f"Response blocked: metadata {name} type/state does not match the Research Summary."
+    return ""
+
+
 def validate_copilot_response(text: str, context: ResearchCopilotContext) -> CopilotValidation:
     """Reject unsafe decision language and identifiers absent from the summary."""
 
@@ -321,6 +456,12 @@ def validate_copilot_response(text: str, context: ResearchCopilotContext) -> Cop
     numeric_error = _validate_numeric_claims(value, context.payload)
     if numeric_error:
         return CopilotValidation(False, numeric_error)
+    background_error = _validate_background_claims(value, context.payload)
+    if background_error:
+        return CopilotValidation(False, background_error)
+    metadata_error = _validate_metadata_claims(value, context.payload)
+    if metadata_error:
+        return CopilotValidation(False, metadata_error)
     allowed_ids = _literature_identifiers(context.payload)
     citations = tuple(_response_citations(value))
     for citation in citations:

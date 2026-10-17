@@ -85,11 +85,47 @@ User-provided Windows screenshots confirm normal batch import, N55Q rule
 comparison, mutation edit invalidation, cross-antibody Summary exclusion,
 Year-column literature selection, GENERAL-label preservation and evidence
 clearing. A real DeepSeek connection and explanation request succeeded, but
-the explanation exposed the privacy-filter defect fixed above. A post-fix
-live explanation has not yet been rechecked and is not recorded as passing.
-Duplicate-ID and in-flight shutdown behavior are covered by automated tests;
-their separate interactive Windows checks are not claimed as completed.
+the first explanation exposed the privacy-filter defect fixed above. The
+user's subsequent AB001 explanation confirmed intact prose, retained VH hash
+provenance and matching score/site values after that repair.
 
-Remaining non-blocking UI issue: after editing a literature query, results
-and selected evidence clear correctly, but the previous result-count status
-can remain visible. This checkpoint does not change that status message.
+## Acceptance follow-up (2026-10-17)
+
+Editing a Literature query, source or result limit now replaces the old result
+count with an instruction to search again. Stale worker results/errors cannot
+restore the old count. Copilot prompts prohibit unrecorded biological
+background, inferred severity/format and invented evidence tensions. Targeted
+response checks block the observed ungrounded CDR functional-effect claim and
+an unrecorded shared-start/shared-residue assertion exposed by a synthetic
+live test. They are explanation guards, not changes to scientific rules.
+
+See `DESKTOP_ACCEPTANCE_2026-10-17.md` for the distinction between Qt integration,
+real Provider calls, and unavailable native mouse automation. New offline
+tests are part of the application suite; the initial two live tests are opt-in
+and excluded from ordinary test runs. No silent Mock fallback is allowed for
+these real Provider checks. User data, private sequences, and API keys are
+not logged. Existing CLI edits and the manually created workbook remain
+untouched. The initial follow-up remained local; the user subsequently
+authorized selective source/test/documentation commit and normal push after
+full regression. No new release or tag is created.
+
+The metadata follow-up adds read-only type/empty-state facts and checks named
+claims about the provenance array, string and hash object. A provider cannot
+describe an empty list as an empty string in these explicit claims. Summary
+values and schema stay unchanged. The live suite now has three opt-in checks;
+its latest focused metadata response used the correct types. A rejected
+general explanation is retained as a failed probe, not hidden by later passes.
+Full semantic correctness still requires human review.
+
+Windows COM follow-up: Qt-only and isolated project startup/heartbeat/exit
+checks passed with faulthandler enabled. Four independent Windows Qt acceptance
+runs each passed eight cases without the prior diagnostic. There is no
+confirmed reproducible product crash and no fault-handler suppression,
+COM/thread-mode workaround, system change or dependency upgrade. The transient
+caller remains unconfirmed. Details and primary references are in
+`WINDOWS_QT_DIAGNOSTIC_2026-10-17.md`.
+
+Final local closure regression: application 665 passed, 7 live tests deselected
+(three of those are opt-in Desktop acceptance checks), 5 warnings; full
+validation suites 185 passed. The focused/general Provider diagnostic run
+passed two tests, with the earlier rejected probe separately retained above.

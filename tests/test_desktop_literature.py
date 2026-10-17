@@ -209,3 +209,53 @@ def test_ai_evidence_clear_and_replace_keeps_standalone_question(qapp):
     page.load_evidence_context(first); assert "First" in page.evidence_panel.toPlainText()
     page.load_evidence_context(second); assert "Second" in page.evidence_panel.toPlainText() and "First" not in page.evidence_panel.toPlainText()
     page.clear_evidence(); assert page._evidence_context is None and page.question.toPlainText() == "standalone question"
+
+
+@pytest.mark.parametrize("change", ["query", "empty_query", "source", "max_results"])
+def test_changed_search_inputs_clear_previous_count_and_evidence(qapp, change):
+    from desktop.literature_adapter import DesktopEvidence
+    from desktop.widgets.literature import LiteraturePage
+
+    page = LiteraturePage()
+    page.query.setText("antibody deamidation")
+    page._done([DesktopEvidence(title="Old result", relevance="GENERAL")])
+    page.results_table.setCurrentCell(0, 1)
+    assert page.status.text() == "Found 1 result(s)."
+    if change == "query":
+        page.query.setText("antibody aggregation")
+    elif change == "empty_query":
+        page.query.clear()
+    elif change == "source":
+        page.source.setCurrentIndex(1)
+    else:
+        page.max_results.setValue(20)
+    assert "Found" not in page.status.text()
+    assert "Search" in page.status.text()
+    assert page.results_table.rowCount() == 0
+    assert page._selected is None
+    assert not page.send_evidence_button.isEnabled()
+    assert page._worker is None
+    page.deleteLater()
+
+
+@pytest.mark.parametrize("completion", ["result", "error"])
+def test_edit_during_search_does_not_leave_searching_or_restore_count(qapp, completion):
+    from desktop.literature_adapter import DesktopEvidence
+    from desktop.widgets.literature import LiteraturePage
+
+    page = LiteraturePage()
+    started = []
+    page.pool = type("Pool", (), {"start": lambda self, worker: started.append(worker)})()
+    page.query.setText("old query")
+    page.search()
+    page.query.setText("new query")
+    status = page.status.text()
+    assert "Searching" not in status
+    if completion == "result":
+        started[0].signals.finished.emit([DesktopEvidence(title="Stale")])
+    else:
+        started[0].signals.error.emit("old timeout")
+    assert page.status.text() == status
+    assert page.results_table.rowCount() == 0
+    assert page.search_button.isEnabled()
+    page.deleteLater()
