@@ -16,6 +16,9 @@ venv/
 *.tmp
 *.egg-info/
 
+# Local candidate distribution artifacts
+/dist/
+
 # ML 产物（模型 / 图片 / 缓存）
 ml/artifacts/
 artifacts/ml_models/

@@ -1,6 +1,10 @@
 # Antibody Research Decision-Support Workbench
 
-**v4.0.0** · local-first antibody sequence, evidence, and experimental-property research workbench
+**v4.1.0rc1 — release candidate** · local-first antibody sequence, evidence, and experimental-property research workbench
+
+Target stable release: v4.1.0; not yet published. The historical v4.0.0 tag
+is unchanged. See the [candidate release notes](docs/RELEASE_NOTES_V4_1.md)
+for the scientific version boundary and qualified environment scope.
 
 This project supports antibody research workflows that combine sequence
 liability screening, local experimental-property model estimates, mutation
@@ -44,7 +48,7 @@ score, clinical predictor, efficacy predictor, affinity predictor, or wet-lab
 replacement. CDR weighting and heuristic PTM candidates remain computational
 rules and require experimental verification.
 
-Unreleased audit fixes introduce the explicit `overlap_v2` rule version for
+This candidate includes audit fixes introducing the explicit `overlap_v2` rule version for
 overlapping N-glycosylation candidates. Historical RULE48 validation remains
 pinned to `frozen_v1`; the scoring formula and stored benchmark results are
 unchanged. See [the audit repair notes](docs/AUDIT_REMEDIATION.md).
@@ -55,12 +59,17 @@ evidence layers; the product does not create an overall combined score.
 
 ## Quick Start — Windows PowerShell
 
-Use a supported Python installation and a PowerShell terminal:
+The qualified Windows x64 base-Desktop profile uses official, standard-GIL
+CPython **3.14.8** in a fresh venv. Package compatibility still starts at
+Python 3.10; that is not qualification of every patch, platform or optional
+extra. The base-Desktop result does not qualify `[dl]`/ESM2 model loading.
+Use a PowerShell terminal:
 
 ```powershell
 git clone <repository-url>
 cd antibody-risk-assessment
-py -3.10 -m venv .venv
+py -3.14 -c "import sys; assert sys.version_info[:3] == (3, 14, 8), sys.version"
+py -3.14 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install ".[desktop]"
@@ -288,7 +297,8 @@ network tests require an explicit `python -m pytest -m live` invocation.
 
 - [`docs/V4_DEMO_WALKTHROUGH.md`](docs/V4_DEMO_WALKTHROUGH.md) — concise
   Desktop walkthrough and later screenshot checklist.
-- [`docs/RELEASE_NOTES_V4.md`](docs/RELEASE_NOTES_V4.md) — v4.0 release notes.
+- [`docs/RELEASE_NOTES_V4_1.md`](docs/RELEASE_NOTES_V4_1.md) — v4.1.0rc1 candidate, Python profile and known limitations.
+- [`docs/RELEASE_NOTES_V4.md`](docs/RELEASE_NOTES_V4.md) — historical v4.0 release notes.
 - [`docs/PROJECT_INTERVIEW_GUIDE.md`](docs/PROJECT_INTERVIEW_GUIDE.md) —
   technically grounded interview Q&A.
 - [`docs/ML_MODEL_CARD.md`](docs/ML_MODEL_CARD.md) — frozen local ML model
