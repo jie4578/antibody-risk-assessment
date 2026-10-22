@@ -137,10 +137,10 @@ def test_provider_switch_loads_only_provider_scoped_key(monkeypatch):
     from desktop.widgets.settings_page import SettingsPage
     app = QApplication.instance() or QApplication([])
     page = SettingsPage(); page.store = CredentialStore(FakeKeyring()); page.store.save_secure("deepseek", "deep-key"); page.store.save_secure("openai", "openai-key")
-    page.provider.setCurrentText("mock")
-    page.provider.setCurrentText("openai"); assert page.api_key.text() == "openai-key"
-    page.provider.setCurrentText("openai-compatible"); assert page.api_key.text() == ""
-    page.provider.setCurrentText("deepseek"); assert page.api_key.text() == "deep-key"
+    page.provider.setCurrentIndex(page.provider.findData("mock"))
+    page.provider.setCurrentIndex(page.provider.findData("openai")); assert page.api_key.text() == "openai-key"
+    page.provider.setCurrentIndex(page.provider.findData("openai-compatible")); assert page.api_key.text() == ""
+    page.provider.setCurrentIndex(page.provider.findData("deepseek")); assert page.api_key.text() == "deep-key"
     page.deleteLater(); app.processEvents()
 
 
@@ -192,7 +192,7 @@ def test_ai_assistant_rejects_missing_remote_key():
     page = AIAssistantPage(lambda: RuntimeLLMConfig(provider="deepseek"))
     page.question.setPlainText("hello")
     page.ask()
-    assert "API key" in page.status.text()
+    assert "API 密钥" in page.status.text()
     page.deleteLater(); app.processEvents()
 
 

@@ -96,12 +96,12 @@ def test_mutation_ml_is_explicit_async_and_displays_neutral_comparison(monkeypat
     assert page.ml_hic_delta.text() == "-0.25 min"
     assert page.ml_probability_baseline.text() == "42.0%"
     assert page.ml_probability_mutant.text() == "37.0%"
-    assert page.ml_probability_delta.text() == "-5.0 pp"
+    assert page.ml_probability_delta.text() == "-5.0 个百分点"
     assert not page.ml_warning.isHidden()
     page.ml_details_button.click()
     details = page.ml_details.toPlainText().lower()
-    assert "model-estimated differences" in page.ml_warning.text().lower()
-    assert "not validated experimental mutation-effect" in page.ml_warning.text().lower()
+    assert "模型估计值之差" in page.ml_warning.text().lower()
+    assert "不是经过实验验证的突变效应" in page.ml_warning.text().lower()
     assert all(term not in details for term in ("recommended", "improved", "better", "success probability"))
     assert service.status_calls == 1
     page.deleteLater(); app.processEvents()
@@ -111,7 +111,7 @@ def test_missing_partner_disables_ml_without_provider_or_model_call(monkeypatch)
     service = FakeMLService(); app, page = _page(service, vl="")
     page._done(_comparison())
     assert not page.ml_run_button.isEnabled()
-    assert "Both VH and VL are required" in page.ml_status.text()
+    assert "需要同时提供 VH 和 VL" in page.ml_status.text()
     page.ml_run_button.click()
     assert service.status_calls == 0 and service.predict_calls == []
     page.deleteLater(); app.processEvents()
@@ -123,7 +123,7 @@ def test_ml_failure_preserves_existing_rule_comparison(monkeypatch):
     monkeypatch.setattr(page.pool, "start", lambda worker: started.append(worker))
     page.ml_run_button.click(); started[0].run(); app.processEvents()
     assert "66.30" in page.original_summary.text()
-    assert "rule-based mutation results are preserved" in page.ml_status.text()
+    assert "已有规则突变结果已保留" in page.ml_status.text()
     assert page.ml_run_button.isEnabled()
     page.deleteLater(); app.processEvents()
 

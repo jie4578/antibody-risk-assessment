@@ -5,23 +5,23 @@ from datetime import datetime, timezone
 from typing import Any
 
 from PySide6.QtCore import QThreadPool
-from PySide6.QtWidgets import QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QPlainTextEdit
+from PySide6.QtWidgets import QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLayout, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QPlainTextEdit
 
 from core import analyze_sequence, normalize_sequence, validate_sequence
 from scoring import compute_risk_score
 from desktop.literature_context import single_risk_context
 from desktop.ml_adapter import DesktopMLService, STATUS_READY, status_code, status_message
 from desktop.ml_metadata import BENCHMARK_ID, BENCHMARK_SCOPE, DEVELOPABILITY_MODEL_ID, ESM_MODEL_NAME, ESM_MODEL_REVISION, HIC_MODEL_ID, LIMITATION, LOCAL_INFERENCE_NOTICE, NO_CATEGORICAL_DECISION_NOTICE, RESEARCH_SUPPORT_NOTICE, evidence_text
-from desktop.research_summary import build_research_summary, render_research_summary
+from desktop.research_summary import build_research_summary
 from desktop.research_copilot import (
     ResearchCopilotContext,
     ResearchCopilotResponse,
     ResearchCopilotSession,
     build_copilot_context,
-    privacy_disclosure,
 )
 from desktop.settings import RuntimeLLMConfig, build_backend
 from desktop.workers import Worker, sanitize_error
+from desktop.zh_cn import display_value, evidence_zh, model_details_zh, notice_zh, privacy_zh, render_summary_zh
 
 
 class SingleAnalysisPage(QWidget):
@@ -59,10 +59,10 @@ class SingleAnalysisPage(QWidget):
         self.score = QLabel("-")
         self.level = QLabel("-")
         self.message = QLabel()
-        self.analyze_button = QPushButton("Analyze")
-        self.clear_button = QPushButton("Clear")
-        self.send_mutation_button = QPushButton("Send to Mutation")
-        self.find_literature_button = QPushButton("Find Literature")
+        self.analyze_button = QPushButton("分析")
+        self.clear_button = QPushButton("清空")
+        self.send_mutation_button = QPushButton("发送至突变工作区")
+        self.find_literature_button = QPushButton("查找文献")
         self.find_literature_button.setEnabled(False)
         self._build_ml_section()
         self.analyze_button.clicked.connect(self.analyze)
@@ -75,48 +75,48 @@ class SingleAnalysisPage(QWidget):
         self.sequence.textChanged.connect(self._input_changed)
         self.vl_sequence.textChanged.connect(self._input_changed)
         self.antibody_id.textChanged.connect(self._mark_summary_stale)
-        form = QFormLayout(); form.addRow("Antibody ID", self.antibody_id); form.addRow("VH Sequence", self.sequence); form.addRow("VL Sequence", self.vl_sequence)
+        form = QFormLayout(); form.addRow("抗体 ID", self.antibody_id); form.addRow("VH 序列", self.sequence); form.addRow("VL 序列", self.vl_sequence)
         buttons = QHBoxLayout(); buttons.addWidget(self.analyze_button); buttons.addWidget(self.clear_button); buttons.addWidget(self.send_mutation_button); buttons.addWidget(self.find_literature_button); buttons.addStretch()
-        summary = QFormLayout(); summary.addRow("Sequence length", self.length); summary.addRow("Risk Score", self.score); summary.addRow("Risk Level", self.level)
-        self.table = QTableWidget(0, 4); self.table.setHorizontalHeaderLabels(["Position", "Motif", "Category", "Region"])
+        summary = QFormLayout(); summary.addRow("序列长度", self.length); summary.addRow("规则计算分数", self.score); summary.addRow("规则风险等级", self.level)
+        self.table = QTableWidget(0, 4); self.table.setHorizontalHeaderLabels(["位置", "基序", "类别", "区域"])
         self.table.itemSelectionChanged.connect(self._risk_selected)
-        self.rule_scope_notice = QLabel("Rule screening applies only to the first sequence input. The VL partner is used for paired ML estimates only. CDR regions use fixed sequence indices (31–35, 50–65, 99–110); no automatic antibody numbering is performed.")
+        self.rule_scope_notice = QLabel("规则扫描仅适用于第一个序列输入框；VL 配对链仅用于配对 ML 估计。CDR 区域采用固定序列位置（31–35、50–65、99–110），不进行自动抗体编号。")
         self.rule_scope_notice.setWordWrap(True)
         layout = QVBoxLayout(self); layout.addWidget(self.rule_scope_notice); layout.addLayout(form); layout.addLayout(buttons); layout.addWidget(self.message); layout.addLayout(summary); layout.addWidget(self.table); layout.addWidget(self.ml_section); layout.addWidget(self.summary_section); layout.addWidget(self.copilot_section)
         self._update_ml_controls()
         self._update_copilot_controls()
 
     def _build_summary_section(self):
-        self.summary_section = QGroupBox("Research Decision Summary")
-        self.build_summary_button = QPushButton("Build Research Summary")
-        self.summary_status = QLabel("Summary is created only by explicit user action.")
+        self.summary_section = QGroupBox("科研决策摘要")
+        self.build_summary_button = QPushButton("生成科研摘要")
+        self.summary_status = QLabel("仅在您点击按钮后生成摘要。")
         self.summary_status.setWordWrap(True)
         self.summary_view = QPlainTextEdit()
         self.summary_view.setReadOnly(True)
         self.summary_view.setVisible(False)
         self.build_summary_button.clicked.connect(self.build_research_summary)
         layout = QVBoxLayout(self.summary_section)
-        layout.addWidget(QLabel("Deterministic evidence aggregation for human review; no LLM or network request."))
+        layout.addWidget(QLabel("以确定性方式汇总证据供人工审阅，不调用大语言模型或网络。"))
         layout.addWidget(self.summary_status)
         layout.addWidget(self.build_summary_button)
         layout.addWidget(self.summary_view)
         self._build_copilot_section()
 
     def _build_copilot_section(self):
-        self.copilot_section = QGroupBox("AI Research Copilot")
+        self.copilot_section = QGroupBox("AI 科研解读")
         self.copilot_privacy = QLabel()
         self.copilot_privacy.setWordWrap(True)
-        self.copilot_status = QLabel("Build a current Research Summary before requesting an explanation.")
+        self.copilot_status = QLabel("请先生成当前科研摘要，再请求 AI 解读。")
         self.copilot_status.setWordWrap(True)
-        self.copilot_explain_button = QPushButton("Explain with AI")
-        self.copilot_context_button = QPushButton("View AI Context")
+        self.copilot_explain_button = QPushButton("使用 AI 解读")
+        self.copilot_context_button = QPushButton("查看 AI 上下文（原始字段）")
         self.copilot_context_button.setEnabled(False)
         self.copilot_context_view = QPlainTextEdit()
         self.copilot_context_view.setReadOnly(True)
         self.copilot_context_view.setVisible(False)
         self.copilot_answer = QPlainTextEdit()
         self.copilot_answer.setReadOnly(True)
-        self.copilot_answer.setPlaceholderText("AI explanation appears here after an explicit request.")
+        self.copilot_answer.setPlaceholderText("点击 AI 解读后，回答将显示在这里。")
         self.copilot_explain_button.clicked.connect(self.explain_with_ai)
         self.copilot_context_button.clicked.connect(self._toggle_copilot_context)
         actions = QHBoxLayout()
@@ -124,7 +124,7 @@ class SingleAnalysisPage(QWidget):
         actions.addWidget(self.copilot_context_button)
         actions.addStretch()
         layout = QVBoxLayout(self.copilot_section)
-        layout.addWidget(QLabel("Optional provider-backed explanation of the deterministic Research Summary. It does not create a verdict or recommendation."))
+        layout.addWidget(QLabel("可选调用已配置的 AI 服务解读确定性科研摘要，不生成最终结论或建议。"))
         layout.addWidget(self.copilot_privacy)
         layout.addWidget(self.copilot_status)
         layout.addLayout(actions)
@@ -143,34 +143,34 @@ class SingleAnalysisPage(QWidget):
 
     def _update_copilot_controls(self):
         config = self._runtime_config()
-        self.copilot_privacy.setText(privacy_disclosure(config.provider))
+        self.copilot_privacy.setText(privacy_zh(config.provider))
         if self._copilot_worker is not None:
             self.copilot_explain_button.setEnabled(False)
             self.copilot_context_button.setEnabled(self._copilot_context is not None)
-            self.copilot_status.setText("Generating an explanation from the current Research Summary…")
+            self.copilot_status.setText("正在解读当前科研摘要…")
             return
         current = self._research_summary is not None and not self._research_summary.is_stale
         self.copilot_explain_button.setEnabled(current)
         self.copilot_context_button.setEnabled(self._copilot_context is not None and current)
         if self._research_summary is None:
-            self.copilot_status.setText("Build a current Research Summary before requesting an explanation.")
+            self.copilot_status.setText("请先生成当前科研摘要，再请求 AI 解读。")
         elif not current:
-            self.copilot_status.setText("Research Summary is outdated. Rebuild it before requesting an AI explanation.")
+            self.copilot_status.setText("科研摘要已过期，请重新生成后再请求 AI 解读。")
         elif self._copilot_session is None:
             if self._copilot_historical and self.copilot_answer.toPlainText().strip():
-                self.copilot_status.setText("Historical explanation — based on an older Research Summary.")
+                self.copilot_status.setText("历史解读：基于旧版科研摘要。")
             else:
-                self.copilot_status.setText("Ready for an explicit AI explanation request.")
+                self.copilot_status.setText("已就绪，点击按钮请求 AI 解读。")
 
     def _mark_copilot_historical(self):
         if self._copilot_session is not None and self.copilot_answer.toPlainText().strip():
             self._copilot_historical = True
-            self.copilot_status.setText("Historical explanation — based on an older Research Summary.")
+            self.copilot_status.setText("历史解读：基于旧版科研摘要。")
 
     def _mark_summary_stale(self):
         if self._research_summary is not None:
             self._research_summary = self._research_summary.mark_stale()
-            self.summary_status.setText("Outdated — evidence has changed. Rebuild Summary.")
+            self.summary_status.setText("摘要已过期：证据已变化，请重新生成。")
             self._copilot_generation += 1
             self._mark_copilot_historical()
             self._update_copilot_controls()
@@ -200,16 +200,16 @@ class SingleAnalysisPage(QWidget):
 
     def build_research_summary(self):
         self._research_summary = build_research_summary(self._research_summary_state())
-        self.summary_view.setPlainText(render_research_summary(self._research_summary))
+        self.summary_view.setPlainText(render_summary_zh(self._research_summary))
         self.summary_view.setVisible(True)
-        self.summary_status.setText("Summary built from the current evidence snapshot.")
+        self.summary_status.setText("已基于当前证据快照生成摘要。")
         had_previous_explanation = bool(self.copilot_answer.toPlainText().strip())
         self._copilot_context = build_copilot_context(self._research_summary)
         self._copilot_session = None
         self._copilot_historical = had_previous_explanation
         self.copilot_context_view.setPlainText(self._copilot_context.to_json())
         if self.copilot_answer.toPlainText().strip():
-            self.copilot_status.setText("New Summary ready. The previous explanation is historical until you request a new one.")
+            self.copilot_status.setText("新摘要已就绪；重新请求解读前，上次回答仅作为历史记录。")
         self._update_copilot_controls()
         return self._research_summary
 
@@ -217,7 +217,7 @@ class SingleAnalysisPage(QWidget):
     def _run_copilot(config: RuntimeLLMConfig, context: ResearchCopilotContext) -> ResearchCopilotResponse:
         backend = build_backend(config)
         session = ResearchCopilotSession(context)
-        return session.explain(backend)
+        return session.explain(backend, question="请用简体中文解读，保留原始数值、基序、位置、模型 ID、引用标识及 DIRECT/GENERAL/IRRELEVANT 标签；所有证据边界和科学限制仍然适用。")
 
     def explain_with_ai(self):
         if self._copilot_worker is not None or self._research_summary is None or self._research_summary.is_stale:
@@ -228,17 +228,17 @@ class SingleAnalysisPage(QWidget):
                 self._mark_summary_stale()
                 return
         except Exception as error:
-            self.copilot_status.setText("AI explanation unavailable: " + sanitize_error(str(error)))
+            self.copilot_status.setText("AI 解读不可用：" + sanitize_error(str(error)))
             return
         try:
             context = self._copilot_context or build_copilot_context(self._research_summary)
             config = self._runtime_config()
         except Exception as error:
-            self.copilot_status.setText("AI explanation unavailable: " + sanitize_error(str(error)))
+            self.copilot_status.setText("AI 解读不可用：" + sanitize_error(str(error)))
             return
         self._copilot_context = context
         self.copilot_context_view.setPlainText(context.to_json())
-        self.copilot_privacy.setText(privacy_disclosure(config.provider))
+        self.copilot_privacy.setText(privacy_zh(config.provider))
         token = self._copilot_generation
         worker = Worker(self._run_copilot, config, context, secrets=[config.api_key])
         self._copilot_worker = worker
@@ -253,18 +253,18 @@ class SingleAnalysisPage(QWidget):
             self._update_copilot_controls()
             return
         if not isinstance(result, ResearchCopilotResponse) or not result.validation.allowed:
-            self.copilot_status.setText("AI response was blocked because it exceeded the evidence boundary.")
+            self.copilot_status.setText("AI 回答超出证据边界，已被拦截。")
             self._update_copilot_controls()
             return
         if result.summary_fingerprint != self._research_summary.fingerprint:
-            self.copilot_status.setText("AI response was discarded because the Research Summary changed.")
+            self.copilot_status.setText("科研摘要已变化，已丢弃旧 AI 回答。")
             self._update_copilot_controls()
             return
         self._copilot_session = ResearchCopilotSession(self._copilot_context)
         self._copilot_session.last_response = result
         self._copilot_historical = False
         self.copilot_answer.setPlainText(result.text)
-        self.copilot_status.setText("AI explanation complete. It is limited to the current Research Summary.")
+        self.copilot_status.setText("AI 解读已完成，仅限于当前科研摘要中的证据。")
         self._update_copilot_controls()
 
     def _copilot_error(self, message: str, token):
@@ -273,9 +273,9 @@ class SingleAnalysisPage(QWidget):
             self._update_copilot_controls()
             return
         if "Response blocked:" in str(message):
-            self.copilot_status.setText("AI response was blocked because it exceeded the evidence boundary.")
+            self.copilot_status.setText("AI 回答超出证据边界，已被拦截。")
         else:
-            self.copilot_status.setText("AI explanation failed. See the provider error below.")
+            self.copilot_status.setText("AI 解读失败，请查看下方服务错误。")
         self.copilot_context_view.setPlainText(sanitize_error(message))
         self._update_copilot_controls()
 
@@ -299,43 +299,46 @@ class SingleAnalysisPage(QWidget):
         return self._research_summary
 
     def _build_ml_section(self):
-        self.ml_section = QGroupBox("Experimental ML Estimates")
+        self.ml_section = QGroupBox("实验性 ML 估计")
         self.ml_status = QLabel()
         self.ml_status.setWordWrap(True)
-        self.ml_local_notice = QLabel(LOCAL_INFERENCE_NOTICE)
+        self.ml_local_notice = QLabel(notice_zh(LOCAL_INFERENCE_NOTICE))
         self.ml_local_notice.setWordWrap(True)
         self.ml_hic_value = QLabel("-")
         self.ml_probability_value = QLabel("-")
         self.ml_probability_value.setToolTip(
-            "P(NOT_DEVELOPABLE) is the model probability for the benchmark-defined "
-            "NOT_DEVELOPABLE class. It is not a clinical failure probability."
+            "P(NOT_DEVELOPABLE) 是模型对基准所定义“不可开发”类别的概率估计，不是临床失败概率。"
         )
         self.ml_hic = self.ml_hic_value
         self.ml_probability = self.ml_probability_value
         self.ml_not_developable_probability = self.ml_probability_value
-        self.ml_run_button = QPushButton("Run Experimental ML Estimates")
+        self.ml_run_button = QPushButton("运行实验性 ML 估计")
         self.ml_button = self.ml_run_button
-        self.ml_details_button = QPushButton("Details")
+        self.ml_details_button = QPushButton("详情")
         self.ml_details_button.setEnabled(False)
         self.ml_details = QPlainTextEdit()
         self.ml_details.setReadOnly(True)
         self.ml_details.setVisible(False)
         form = QFormLayout()
-        form.addRow("HIC estimate", self.ml_hic_value)
-        form.addRow("NOT_DEVELOPABLE probability", self.ml_probability_value)
+        form.addRow("HIC 估计值", self.ml_hic_value)
+        form.addRow("不可开发类别概率 P(NOT_DEVELOPABLE)", self.ml_probability_value)
         actions = QHBoxLayout()
         actions.addWidget(self.ml_run_button)
         actions.addWidget(self.ml_details_button)
         actions.addStretch()
         layout = QVBoxLayout(self.ml_section)
-        layout.addWidget(QLabel("Local research-support estimates derived from frozen sequence ML models."))
-        layout.addWidget(QLabel("Model estimate based on sequence representation. No categorical decision threshold is defined."))
-        layout.addWidget(QLabel("Models: HIC ESM2 + Ridge · Composite ESM2 + Logistic Regression"))
-        layout.addWidget(QLabel("Internal benchmark: " + evidence_text("hic") + " " + evidence_text("developability")))
+        layout.setSizeConstraint(QLayout.SetMinimumSize)
+        for text in ("由冻结的序列 ML 模型生成本地科研辅助估计。",
+                     "基于序列表征的模型估计，未设置分类决策阈值。",
+                     "模型：HIC ESM2 + 岭回归；复合终点 ESM2 + 逻辑回归",
+                     "内部基准：" + evidence_zh("hic") + " " + evidence_zh("developability")):
+            label = QLabel(text)
+            label.setWordWrap(True)
+            layout.addWidget(label)
         layout.addLayout(form)
         layout.addWidget(self.ml_status)
         layout.addWidget(self.ml_local_notice)
-        layout.addWidget(QLabel(RESEARCH_SUPPORT_NOTICE))
+        layout.addWidget(QLabel(notice_zh(RESEARCH_SUPPORT_NOTICE)))
         layout.addLayout(actions)
         layout.addWidget(self.ml_details)
 
@@ -374,15 +377,15 @@ class SingleAnalysisPage(QWidget):
         vh_valid, _ = self._valid_chain(self.sequence.toPlainText())
         vl_valid, _ = self._valid_chain(self.vl_sequence.toPlainText())
         if not vh_valid or not vl_valid:
-            return "Both VH and VL are required for experimental ML estimates."
+            return "实验性 ML 估计需要同时提供 VH 和 VL 序列。"
         if not self._analysis_ready:
-            return "Analyze the current VH and VL before running experimental ML estimates."
-        return "Ready for explicit local ML inference."
+            return "请先完成当前输入的分析，再运行配对 ML 估计。"
+        return "已就绪，点击按钮运行本地 ML 推理。"
 
     def _update_ml_controls(self):
         if self._ml_worker is not None:
             self.ml_run_button.setEnabled(False)
-            self.ml_status.setText("Loading local sequence model… Generating research-support estimates…")
+            self.ml_status.setText("正在加载本地序列模型并生成科研辅助估计…")
             return
         vh_valid, _ = self._valid_chain(self.sequence.toPlainText())
         vl_valid, _ = self._valid_chain(self.vl_sequence.toPlainText())
@@ -407,11 +410,11 @@ class SingleAnalysisPage(QWidget):
         risk = compute_risk_score([(self.antibody_id.text() or "sequence", result)])
         self._analysis_result = result
         self._rule_score = risk
-        self.score.setText(f"{risk.overall_score:.2f}"); self.level.setText(risk.risk_level); self.message.setText(""); self.send_mutation_button.setEnabled(bool(self._open_mutation and result.sequence))
+        self.score.setText(f"{risk.overall_score:.2f}"); self.level.setText(display_value(risk.risk_level)); self.message.setText(""); self.send_mutation_button.setEnabled(bool(self._open_mutation and result.sequence))
         for item in result.risks:
             row = self.table.rowCount(); self.table.insertRow(row)
             for col, value in enumerate((item.position, item.motif, item.category, item.region)):
-                self.table.setItem(row, col, QTableWidgetItem(str(value)))
+                self.table.setItem(row, col, QTableWidgetItem(display_value(value) if col == 3 else str(value)))
             self.table.item(row, 0).setData(32, item)
         self._analysis_ready = True
         self._risk_selected()
@@ -430,7 +433,7 @@ class SingleAnalysisPage(QWidget):
             self._show_ml_error(sanitize_error(str(error)))
             return
         if status_code(status) != STATUS_READY:
-            self.ml_status.setText(status_message(status))
+            self.ml_status.setText(notice_zh(status_message(status)))
             self.ml_details.setPlainText(str(status.get("error", "")) if isinstance(status, dict) else "")
             self.ml_details_button.setEnabled(bool(self.ml_details.toPlainText()))
             return
@@ -488,7 +491,7 @@ class SingleAnalysisPage(QWidget):
             }
             self._ml_result = {"result": result, "provenance": dict(self.ml_provenance)}
             self._mark_summary_stale()
-            self.ml_details.setPlainText(
+            self.ml_details.setPlainText(model_details_zh(
                 "HIC model: ESM2 + Ridge\n"
                 f"HIC model ID: {self.ml_provenance['hic_model_id']} ({self.ml_provenance['hic_model_version']})\n"
                 "HIC: " + evidence_text("hic") + "\n"
@@ -505,9 +508,9 @@ class SingleAnalysisPage(QWidget):
                 f"{LIMITATION}\n"
                 f"{NO_CATEGORICAL_DECISION_NOTICE}\n"
                 f"{RESEARCH_SUPPORT_NOTICE}"
-            )
+            ))
             self.ml_details_button.setEnabled(True)
-            self.ml_status.setText("Local ML estimates complete. Experimental verification remains required.")
+            self.ml_status.setText("本地 ML 估计已完成，仍需实验验证。")
         except Exception as error:
             self._show_ml_error(str(error))
             return
@@ -521,7 +524,7 @@ class SingleAnalysisPage(QWidget):
         self._show_ml_error(message)
 
     def _show_ml_error(self, message: str):
-        self.ml_status.setText("Local ML estimates failed. See Details for diagnostics.")
+        self.ml_status.setText("本地 ML 估计失败，请在“详情”中查看诊断。")
         self.ml_details.setPlainText(sanitize_error(message))
         self.ml_details_button.setEnabled(True)
         self._update_ml_controls()

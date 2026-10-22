@@ -200,5 +200,5 @@ def test_single_analysis_summary_requires_explicit_action_and_marks_stale(qapp=N
     assert not page.summary_view.isHidden()
     page.sequence.setPlainText(VH[:-1] + "A")
     assert page.research_summary.is_stale
-    assert "Outdated" in page.summary_status.text()
+    assert "已过期" in page.summary_status.text()
     page.deleteLater(); app.processEvents()

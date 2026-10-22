@@ -59,9 +59,9 @@ def test_literature_page_has_search_controls_and_privacy_notice(qapp):
     assert page.query is not None
     assert page.source.currentData() == "auto"
     assert page.max_results.value() == 10
-    assert page.search_button.text() == "Search"
+    assert page.search_button.text() == "搜索"
     assert page.results_table.columnCount() == 7
-    assert "external providers" in page.privacy.text()
+    assert "外部文献服务" in page.privacy.text()
 
 
 def test_empty_query_is_rejected_without_worker(qapp):
@@ -87,17 +87,17 @@ def test_page_renders_result_and_selection_detail(qapp):
     assert page.abstract.text() == "Abstract"
     assert page.pmid.text() == "12345678"
     assert page.doi.text() == "10.1000/test"
-    assert page.relevance.text() == "GENERAL"
+    assert page.relevance.text() == "一般参考（GENERAL）"
     assert page.open_source_button.isEnabled()
 
 
 @pytest.mark.parametrize(
     "message, expected",
     [
-        ("timeout", "timed out"),
-        ("HTTP 429 rate limit", "rate limit"),
-        ("connection failed", "temporarily unavailable"),
-        ("provider api error", "API error"),
+        ("timeout", "超时"),
+        ("HTTP 429 rate limit", "频率已达上限"),
+        ("connection failed", "暂时不可用"),
+        ("provider api error", "API 错误"),
     ],
 )
 def test_error_messages_are_user_friendly(message, expected):
@@ -220,7 +220,7 @@ def test_changed_search_inputs_clear_previous_count_and_evidence(qapp, change):
     page.query.setText("antibody deamidation")
     page._done([DesktopEvidence(title="Old result", relevance="GENERAL")])
     page.results_table.setCurrentCell(0, 1)
-    assert page.status.text() == "Found 1 result(s)."
+    assert page.status.text() == "找到 1 条结果。"
     if change == "query":
         page.query.setText("antibody aggregation")
     elif change == "empty_query":
@@ -229,8 +229,8 @@ def test_changed_search_inputs_clear_previous_count_and_evidence(qapp, change):
         page.source.setCurrentIndex(1)
     else:
         page.max_results.setValue(20)
-    assert "Found" not in page.status.text()
-    assert "Search" in page.status.text()
+    assert "找到" not in page.status.text()
+    assert "搜索" in page.status.text()
     assert page.results_table.rowCount() == 0
     assert page._selected is None
     assert not page.send_evidence_button.isEnabled()

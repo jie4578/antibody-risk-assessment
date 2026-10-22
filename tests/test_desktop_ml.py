@@ -61,7 +61,7 @@ def test_ml_requires_both_valid_chains_and_does_not_autorun():
     page.sequence.setPlainText(VH)
     page.analyze()
     assert not page.ml_button.isEnabled()
-    assert "Both VH and VL are required" in page.ml_status.text()
+    assert "需要同时提供 VH 和 VL" in page.ml_status.text()
     assert service.predict_calls == []
     page.deleteLater(); app.processEvents()
 
@@ -78,9 +78,9 @@ def test_ml_runs_explicitly_asynchronously_and_renders_research_outputs():
     assert page.ml_details_button.isEnabled()
     page.ml_details_button.click()
     details = page.ml_details.toPlainText()
-    assert "Benchmark scope" in details
-    assert "No categorical decision threshold" in details
-    assert "experimental verification" in details.lower()
+    assert "基准范围" in details
+    assert "未设置分类决策阈值" in details
+    assert "实验验证" in details.lower()
     page.deleteLater(); app.processEvents()
 
 
@@ -88,7 +88,7 @@ def test_ml_status_distinguishes_missing_artifacts_without_starting_worker():
     service = FakeMLService({"status": "MODEL_ARTIFACTS_MISSING"})
     app, page = _page(service)
     page.ml_button.click()
-    assert "model artifacts are not available" in page.ml_status.text()
+    assert "模型文件不可用" in page.ml_status.text()
     assert service.predict_calls == []
     page.deleteLater(); app.processEvents()
 

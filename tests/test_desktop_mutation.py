@@ -68,7 +68,7 @@ def test_mutation_page_renders_comparison_and_keeps_baseline(monkeypatch):
     assert page.simulate_button.isEnabled(); assert "66.30" in page.original_summary.text(); assert "74.10" in page.mutant_summary.text()
     assert "+7.80" in page.comparison.text(); assert page.removed_table.rowCount() == 1; assert page.added_table.rowCount() == 0
     page.add_candidate(); assert page.candidates.rowCount() == 1
-    page.sequence.setPlainText(VH[:-1] + "A"); assert page.candidates.rowCount() == 0; assert page.original_summary.text().startswith("Length: -")
+    page.sequence.setPlainText(VH[:-1] + "A"); assert page.candidates.rowCount() == 0; assert page.original_summary.text().startswith("长度：-")
     page.deleteLater(); app.processEvents()
 
 
@@ -98,5 +98,5 @@ def test_real_windows_vh_input_succeeds_and_vl_mismatch_is_preserved(monkeypatch
     page.load_sequence("Ab-001", VH, "VH"); page.mutation.setText("N55Q"); page.simulate(); assert page.mutation.text() == "N55Q"
     started.pop().signals.finished.emit(compare_mutation(VH, "N55Q", "Ab-001", "VH")); assert "66.30" in page.original_summary.text(); assert "74.10" in page.mutant_summary.text()
     page.load_sequence("Ab-001", vl, "VL"); page.mutation.setText("N55Q"); page.simulate(); started.pop().signals.error.emit("Expected residue N at position 55, but found Q.")
-    assert "Expected residue N at position 55, but found Q." in page.message.text(); assert "Invalid mutation format" not in page.message.text()
+    assert "位置 55 预期为残基 N，实际为 Q。" in page.message.text(); assert "Invalid mutation format" not in page.message.text()
     page.deleteLater(); app.processEvents()

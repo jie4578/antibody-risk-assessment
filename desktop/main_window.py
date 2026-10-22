@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QThreadPool, QTimer
-from PySide6.QtWidgets import QLabel, QListWidget, QMainWindow, QStackedWidget, QHBoxLayout, QWidget
+from PySide6.QtWidgets import QLabel, QListWidget, QMainWindow, QStackedWidget, QHBoxLayout, QScrollArea, QWidget
 
 from desktop.workers import Worker
+from desktop.zh_cn import install_qt_chinese
 
 from desktop.settings import RuntimeLLMConfig, load_settings
 from desktop.widgets.ai_assistant import AIAssistantPage
@@ -16,11 +17,19 @@ from desktop.widgets.literature import LiteraturePage
 
 class MainWindow(QMainWindow):
     def __init__(self):
-        super().__init__(); self.setWindowTitle("Antibody AI Research Assistant — Desktop Workbench"); self.resize(1100, 750); self._config = load_settings()
-        self.nav = QListWidget(); self.nav.addItems(["Single Analysis", "Batch Analysis", "Mutation", "Literature", "AI Assistant", "Settings"]); self.stack = QStackedWidget(); self.single = SingleAnalysisPage(open_mutation=self._open_mutation, open_literature=self._open_literature, research_state_getter=self._research_state_for_single, config_getter=lambda: self._config); self.mutation = MutationPage(open_literature=self._open_literature, on_state_changed=self.single.notify_external_evidence_changed); self.stack.addWidget(self.single); self.stack.addWidget(BatchAnalysisPage(open_single=self._open_single, open_mutation=self._open_mutation)); self.stack.addWidget(self.mutation)
+        super().__init__()
+        from PySide6.QtWidgets import QApplication
+        install_qt_chinese(QApplication.instance())
+        self.setWindowTitle("抗体 AI 科研助手 — 桌面工作台"); self.resize(1100, 750); self._config = load_settings()
+        self.nav = QListWidget(); self.nav.addItems(["单条分析", "批量分析", "突变", "文献", "AI 助手", "设置"]); self.stack = QStackedWidget(); self.single = SingleAnalysisPage(open_mutation=self._open_mutation, open_literature=self._open_literature, research_state_getter=self._research_state_for_single, config_getter=lambda: self._config); self.mutation = MutationPage(open_literature=self._open_literature, on_state_changed=self.single.notify_external_evidence_changed); self.stack.addWidget(self.single); self.stack.addWidget(BatchAnalysisPage(open_single=self._open_single, open_mutation=self._open_mutation)); self.stack.addWidget(self.mutation)
         self.literature = LiteraturePage(); self.literature.set_open_ai(self._open_ai_evidence); self.literature.set_summary_changed_callback(self.single.notify_external_evidence_changed); self.stack.addWidget(self.literature)
         self.settings = SettingsPage(); self._config = self.settings.config(); self.ai = AIAssistantPage(lambda: self._config); self.stack.addWidget(self.ai); self.stack.addWidget(self.settings); self.settings.config_applied.connect(self._set_config); self.settings.config_applied.connect(self.single.notify_config_changed); self.nav.currentRowChanged.connect(self.stack.setCurrentIndex); self.nav.setCurrentRow(0)
-        root = QWidget(); layout = QHBoxLayout(root); layout.addWidget(self.nav, 1); layout.addWidget(self.stack, 4); self.setCentralWidget(root)
+        self.nav.setFixedWidth(136)
+        self.content_scroll = QScrollArea()
+        self.content_scroll.setWidgetResizable(True)
+        self.content_scroll.setWidget(self.stack)
+        self.nav.currentRowChanged.connect(lambda _: self.content_scroll.verticalScrollBar().setValue(0))
+        root = QWidget(); layout = QHBoxLayout(root); layout.addWidget(self.nav); layout.addWidget(self.content_scroll, 1); self.setCentralWidget(root)
         self._shutdown_pool = QThreadPool.globalInstance()
         self._shutdown_requested = False
         self._shutdown_timer = QTimer(self)
@@ -35,7 +44,7 @@ class MainWindow(QMainWindow):
         if self._shutdown_pool.activeThreadCount():
             event.ignore()
             self.setEnabled(False)
-            self.statusBar().showMessage("Closing: queued work cancelled; waiting for active operations to finish…")
+            self.statusBar().showMessage("正在关闭：已取消排队任务，等待正在运行的操作完成…")
             self._shutdown_timer.start()
         else:
             self._shutdown_timer.stop()

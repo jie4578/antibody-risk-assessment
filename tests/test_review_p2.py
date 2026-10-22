@@ -44,7 +44,7 @@ def test_literature_changes_clear_evidence_and_notify_summary(app, change):
     notifications.clear()
     if change == "results": page._done([DesktopEvidence(title="New")])
     elif change == "query": page.query.setText("new query")
-    elif change == "filter": page.filter.setCurrentText("All")
+    elif change == "filter": page.filter.setCurrentText("全部")
     elif change == "context": page.load_context(LiteratureContext("single", safe_query="new query"))
     else: page.clear_context()
     assert page._selected is None
@@ -69,8 +69,8 @@ def test_single_scope_and_identity_staleness_are_explicit(app):
     page = SingleAnalysisPage(); page.set_input("A", "NGNST")
     page.vl_sequence.setPlainText("MMMM"); page.analyze()
     summary = page.build_research_summary()
-    assert "first sequence input" in page.rule_scope_notice.text()
-    assert "fixed sequence indices" in page.rule_scope_notice.text()
+    assert "第一个序列输入框" in page.rule_scope_notice.text()
+    assert "固定序列位置" in page.rule_scope_notice.text()
     assert "VL partner is not rule-scanned" in summary.sequence_analysis["chain_context"]
     assert summary.sequence_analysis["rule_version"] == "overlap_v2"
     page.antibody_id.setText("B")

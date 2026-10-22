@@ -89,11 +89,11 @@ def test_batch_detail_keeps_chain_and_category_summary(monkeypatch):
     page = BatchAnalysisPage()
     page._done(BatchResult([record, other], "input.csv"))
     assert page.table.rowCount() == 2
-    page.risk_filter.setCurrentText("Low")
+    page.risk_filter.setCurrentText("低风险")
     assert page.table.rowCount() == 1
     page.search.setText("AB-1")
     assert page.table.rowCount() == 0
-    page.risk_filter.setCurrentText("All")
+    page.risk_filter.setCurrentText("全部")
     page.table.selectRow(0)
     assert page.detail_table.item(0, 0).text() == "VH"
     assert page.detail_table.item(1, 0).text() == "VL"
@@ -244,14 +244,14 @@ def test_column_mapping_dialog_prefills_known_fields_but_keeps_conflicts_unresol
     app = QApplication.instance() or QApplication([])
     mapping, ambiguous, _ = infer_mapping(["ID", "Clone ID", "VH", "VL"]); assert ambiguous
     dialog = ColumnMappingDialog(["ID", "Clone ID", "VH", "VL"], initial_mapping=mapping)
-    assert dialog.fields["Antibody ID"].currentText() == "None"
+    assert dialog.fields["Antibody ID"].currentText() == "不映射"
     assert dialog.fields["Antibody ID"].currentData() is None
-    assert dialog.fields["VH"].currentText() == "VH"; assert dialog.fields["VL"].currentText() == "VL"; assert dialog.fields["Sequence"].currentText() == "None"
+    assert dialog.fields["VH"].currentText() == "VH"; assert dialog.fields["VL"].currentText() == "VL"; assert dialog.fields["Sequence"].currentText() == "不映射"
     dialog.deleteLater()
     mapping, ambiguous, _ = infer_mapping(["Sample", "Seq_A", "Seq_B"]); assert ambiguous
     dialog = ColumnMappingDialog(["Sample", "Seq_A", "Seq_B"], initial_mapping=mapping)
     assert dialog.fields["Antibody ID"].currentText() == "Sample"
-    assert dialog.fields["VH"].currentText() == "None"; assert dialog.fields["VL"].currentText() == "None"
+    assert dialog.fields["VH"].currentText() == "不映射"; assert dialog.fields["VL"].currentText() == "不映射"
     assert dialog.fields["VH"].currentData() is None; assert dialog.fields["VL"].currentData() is None
     dialog.fields["VH"].setCurrentText("Seq_A"); dialog.fields["VL"].setCurrentText("Seq_B"); dialog._accept()
     assert dialog.mapping() == {"antibody_id": "Sample", "VH": "Seq_A", "VL": "Seq_B"}
@@ -266,5 +266,5 @@ def test_cancel_mapping_does_not_replace_existing_batch_state(monkeypatch):
 
     app = QApplication.instance() or QApplication([]); page = BatchAnalysisPage(); existing = BatchResult([BatchRecord("old")], "old.csv"); page._done(existing)
     page._path = "new.csv"; monkeypatch.setattr(page, "_resolve_input", lambda: (False, None)); page.analyze()
-    assert page.records == existing.records; assert page.source.text() == "No file selected"
+    assert page.records == existing.records; assert page.source.text() == "尚未选择文件"
     page.deleteLater(); app.processEvents()
