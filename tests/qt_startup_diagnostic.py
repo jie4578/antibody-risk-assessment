@@ -109,7 +109,7 @@ def classify_probe(returncode, payload, stderr):
                     "Observed UIA COM/RPC first-chance diagnostic; process remained healthy. Not a clean run.")
 
 
-def run_child(mode, duration):
+def run_child(mode, duration, network_audit=None):
     """Windows-only observer; always continue exception search unchanged."""
     import ctypes as C
     from ctypes import wintypes as W
@@ -168,9 +168,12 @@ def run_child(mode, duration):
                 app = QApplication([])
                 with ExitStack() as patches:
                     phase = "window_create"
-                    if mode == "project":
+                    if mode in {"project", "installed"}:
                         # Only the opt-in project mode reads the source checkout.
-                        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+                        if mode == "project":
+                            sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+                        elif "site-packages" not in Path(__import__("desktop").__file__).parts:
+                            raise RuntimeError("Installed mode requires an installed Desktop package")
                         from desktop.main_window import MainWindow
                         from desktop.settings import RuntimeLLMConfig
                         patches.enter_context(patch("desktop.credentials.CredentialStore.get", return_value=""))
@@ -185,8 +188,12 @@ def run_child(mode, duration):
                     timer.setInterval(10)
                     timer.timeout.connect(lambda: ticks.append(True))
                     phase = "window_show"
+                    if network_audit:
+                        network_audit.phase = phase
                     window.show()
                     phase = "event_loop"
+                    if network_audit:
+                        network_audit.phase = phase
                     timer.start()
                     QTimer.singleShot(duration, window.close)
                     QTimer.singleShot(duration + 5000, lambda: app.exit(91))
@@ -262,7 +269,8 @@ def run_child(mode, duration):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--mode", choices=("qt_only", "project"), default="qt_only")
+    parser.add_argument("--mode", choices=("qt_only", "project", "installed"), default="qt_only")
+    parser.add_argument("--network-audit", choices=("strict", "socketpair"))
     parser.add_argument("--duration-ms", type=int, default=1000)
     parser.add_argument("--child", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
@@ -271,9 +279,18 @@ def main():
     if os.name != "nt":
         parser.error("native diagnostic requires Windows")
     if args.child:
+        if args.network_audit:
+            from desktop_network_audit import NetworkAudit
+            with NetworkAudit(allow_asyncio_socketpair=args.network_audit == "socketpair") as audit:
+                try:
+                    return run_child(args.mode, args.duration_ms, audit)
+                finally:
+                    print("QT_NETWORK_AUDIT=" + json.dumps(audit.report()), flush=True)
         return run_child(args.mode, args.duration_ms)
     command = [sys.executable, "-X", "faulthandler", "-B", str(Path(__file__).resolve()),
                "--child", "--mode", args.mode, "--duration-ms", str(args.duration_ms)]
+    if args.network_audit:
+        command += ["--network-audit", args.network_audit]
     child = subprocess.run(command, capture_output=True, timeout=args.duration_ms / 1000 + 20)
     # Preserve original streams verbatim; the structured decision is additional.
     sys.stdout.buffer.write(child.stdout)

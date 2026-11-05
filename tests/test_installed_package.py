@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_installed_wheel_has_no_validation_runtime_dependency(tmp_path):
     source = tmp_path / "source"
     source.mkdir()
-    for path in [ROOT / "pyproject.toml", ROOT / "README.md", *ROOT.glob("*.py")]:
+    for path in [ROOT / "pyproject.toml", ROOT / "README.md", ROOT / "LICENSE", *ROOT.glob("*.py")]:
         shutil.copy2(path, source / path.name)
     for package in ("desktop", "agent", "literature", "ml", "ml_inference", "rag"):
         shutil.copytree(ROOT / package, source / package, ignore=shutil.ignore_patterns("__pycache__", "artifacts"))
@@ -22,6 +22,10 @@ def test_installed_wheel_has_no_validation_runtime_dependency(tmp_path):
     wheel = next((tmp_path / "wheel").glob("*.whl"))
     with zipfile.ZipFile(wheel) as archive:
         assert "config.py" in archive.namelist()
+        assert "desktop/zh_cn.py" in archive.namelist()
+        metadata = archive.read(next(name for name in archive.namelist() if name.endswith(".dist-info/METADATA"))).decode("utf-8")
+        assert "License-Expression: MIT" in metadata
+        assert any(name.endswith(".dist-info/licenses/LICENSE") for name in archive.namelist())
         assert not any(name.startswith("validation/") for name in archive.namelist())
     smoke = "import sys; sys.path.insert(0, sys.argv[1]); import config, ml_inference, agent.llm; "
     if importlib.util.find_spec("PySide6"):

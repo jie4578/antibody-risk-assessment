@@ -1,3 +1,12 @@
 # The sdist includes test_*.py by default; retain their opt-in diagnostic helper.
 include tests/qt_startup_diagnostic.py
+include tests/desktop_network_audit.py
 include docs/RELEASE_NOTES_V4_1.md
+include docs/DESKTOP_ZH_CN.md
+include docs/ML_MODEL_CARD.md
+include docs/ML_DEPLOYMENT_CHECKLIST.md
+include docs/RELEASE_READINESS_2026-11-05.md
+include docs/RELEASE_DIAGNOSTIC_FOLLOWUP_2026-11-05.md
+include tools/check_ml_deployment.py
+include docs/environments/windows-base314-observed.txt
+include docs/environments/windows-ml-cpu313-observed.txt

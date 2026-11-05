@@ -1,10 +1,18 @@
 # Antibody Research Decision-Support Workbench
 
-**v4.1.0rc1 — release candidate** · local-first antibody sequence, evidence, and experimental-property research workbench
+**v4.1.0rc2 — release candidate** · local-first antibody sequence, evidence, and experimental-property research workbench
 
 Target stable release: v4.1.0; not yet published. The historical v4.0.0 tag
 is unchanged. See the [candidate release notes](docs/RELEASE_NOTES_V4_1.md)
 for the scientific version boundary and qualified environment scope.
+
+Desktop now defaults to Simplified Chinese. The Chinese source checkpoint
+`dd7231b` passed all six remote CI jobs. This rc2 preparation is a **new local,
+unpublished candidate**, not a new remote CI pass or a published installer.
+The existing public screenshots show the older English interface.
+See [Chinese Desktop](docs/DESKTOP_ZH_CN.md),
+[deployment checks](docs/ML_DEPLOYMENT_CHECKLIST.md) and the
+[current release gate](docs/RELEASE_READINESS_2026-11-05.md).
 
 This project supports antibody research workflows that combine sequence
 liability screening, local experimental-property model estimates, mutation
@@ -59,22 +67,28 @@ evidence layers; the product does not create an overall combined score.
 
 ## Quick Start — Windows PowerShell
 
-The qualified Windows x64 base-Desktop profile uses official, standard-GIL
-CPython **3.14.8** in a fresh venv. Package compatibility still starts at
+The previously qualified Windows x64 base-Desktop profile used official,
+standard-GIL CPython **3.14.8** in a fresh venv. Package compatibility still starts at
 Python 3.10; that is not qualification of every patch, platform or optional
 extra. The base-Desktop result does not qualify `[dl]`/ESM2 model loading.
 Use a PowerShell terminal:
 
 ```powershell
-git clone <repository-url>
+git clone https://github.com/jie4578/antibody-risk-assessment.git
 cd antibody-risk-assessment
-py -3.14 -c "import sys; assert sys.version_info[:3] == (3, 14, 8), sys.version"
+py -3.14 -c "import sys; print(sys.version)"
 py -3.14 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install ".[desktop]"
 python -m desktop.main
 ```
+
+The older exact-patch acceptance record is not a recommendation to stay on
+an old patch indefinitely, nor proof that this rc2 artifact is already
+qualified. The rc2 release gate records its actual interpreter and results.
+If `py` does not list your installed Python, use its actual executable path
+with `-m venv .venv`; do not change Anaconda or the system PATH to work around it.
 
 Provider configuration is optional. Rule analysis, batch analysis, mutation
 rule comparison, literature retrieval, and local summaries do not require an
@@ -96,6 +110,12 @@ The frozen deployment-model builder is:
 ```powershell
 python validation/run_build_deployment_models.py
 ```
+
+**Maintainer-only reconstruction, not an installation repair.** This builder
+fits the frozen estimator definitions on the authorized TRAIN+VALIDATION
+bundle. Do not run it just to enable ML in an installed Desktop package or
+during a no-training acceptance audit. Use trusted, hash-verified existing
+artifacts instead; see the [deployment checklist](docs/ML_DEPLOYMENT_CHECKLIST.md).
 
 This command reads the frozen Phase 5 TRAIN + VALIDATION inputs and local
 frozen ESM2 embeddings, then creates these ignored local artifacts:

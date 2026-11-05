@@ -1,8 +1,26 @@
-# v4.1.0rc1 — release candidate
+# v4.1.0rc2 — release candidate
 
-Target stable release: v4.1.0. Candidate preparation: 2026-10-18.
+Target stable release: v4.1.0. rc1 preparation: 2026-10-18;
+Chinese rc2 preparation: 2026-11-05.
 This is a local candidate, not a published GitHub/PyPI release or new tag.
 The historical v4.0.0 tag is not moved or amended.
+
+## rc2 changes and current gate
+
+- Simplified Chinese Desktop presentation from `dd7231b`; canonical scientific
+  identifiers, exported schema and original literature stay unchanged.
+- That source checkpoint passed all six remote CI jobs. The new rc2 metadata,
+  packaging, inspector and documentation changes are not yet remotely tested.
+- SPDX MIT expression and explicit LICENSE inclusion, with a matching
+  setuptools >=77.0.3 backend floor; no license terms changed.
+- A read-only deployment inspector and installation checklist distinguish
+  static prerequisites, synthetic estimator checks and full offline ESM smoke.
+- See [the current gate](RELEASE_READINESS_2026-11-05.md) for rc2 observations.
+  The exact-patch results below are historical rc1 evidence, not new rc2 passes.
+- The [rc2 diagnostic follow-up](RELEASE_DIAGNOSTIC_FOLLOWUP_2026-11-05.md)
+  verifies the bounded UIA/COM path and separates asyncio internal loopback
+  from explicit external requests. It does not erase the four unattributed
+  historical attempts, claim a CLEAN native run, or alter production networking.
 
 ## Scientific version boundary
 

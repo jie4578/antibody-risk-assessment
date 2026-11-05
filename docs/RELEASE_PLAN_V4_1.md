@@ -1,5 +1,10 @@
 # v4.1.0 release decision and selective-commit review
 
+Current follow-up (2026-11-05): Chinese **4.1.0rc2** local preparation and
+scoped acceptance are recorded in [the current release gate](RELEASE_READINESS_2026-11-05.md).
+The rc1 planning/results below remain historical. Neither the prior source CI
+nor the rc1 package qualification is silently transferred to a new rc2 commit.
+
 Decision date: 2026-10-18. Review base:
 `fbc47eae0b898a6afba2f06b2af949616beac568` on `main`.
 
