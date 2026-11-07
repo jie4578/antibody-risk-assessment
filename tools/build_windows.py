@@ -35,6 +35,9 @@ def snapshot(destination):
     files = [ROOT / name for name in TOP_LEVEL + DOCUMENTS]
     for package in PACKAGES + ("packaging/windows",):
         files += [p for p in (ROOT / package).rglob("*") if p.is_file() and p.suffix in {".py", ".spec", ".iss", ".txt", ".json"} and "__pycache__" not in p.parts]
+    # The user's preserved CLI edits are unrelated to Desktop delivery. Never
+    # embed the dirty literature CLI through the package-wide hidden imports.
+    files = [p for p in files if p.relative_to(ROOT).as_posix() != "literature/cli.py"]
     files += list((ROOT / "docs/images/windows").glob("*.png"))
     result = {}
     for source in files:

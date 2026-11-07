@@ -25,6 +25,21 @@ def test_notices_exclude_code(name):
     assert not is_notice_file(name)
 
 
+def test_snapshot_excludes_preserved_cli(monkeypatch, tmp_path):
+    from tools import build_windows
+    source = tmp_path / "source"
+    (source / "literature").mkdir(parents=True)
+    (source / "literature/cli.py").write_text("preserved local changes")
+    (source / "literature/__init__.py").write_text("# public package")
+    (source / "cli.py").write_text("preserved root CLI")
+    monkeypatch.setattr(build_windows, "ROOT", source)
+    monkeypatch.setattr(build_windows, "TOP_LEVEL", ())
+    monkeypatch.setattr(build_windows, "DOCUMENTS", ())
+    monkeypatch.setattr(build_windows, "PACKAGES", ("literature",))
+    result = build_windows.snapshot(tmp_path / "snapshot")
+    assert set(result) == {"literature/__init__.py"}
+
+
 def test_upstream_comments_and_hashes_preserved(tmp_path):
     source = tmp_path / "source.tar.xz"
     payload = b'{\n// upstream comment\n"Copyright": "Example"\n}'
