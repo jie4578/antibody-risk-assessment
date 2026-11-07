@@ -2,6 +2,13 @@
 
 ## Purpose
 
+Delivery note (2026-11-07): the 4.1.0rc2 base Windows installer excludes frozen
+model binaries, PyTorch and ESM2 weights. Settings provides a read-only deployment
+check and user-selected locations with an independently trusted manifest digest.
+Static READY is not a model-loading or scientific-performance qualification.
+Advanced ML still requires a separately qualified source environment and
+authorized existing artifacts; installing the base application does not train.
+
 Phase 6A provides local research decision support using two frozen models from
 the Phase 5 benchmark. It is not a clinical predictor, validated production
 predictor, family-independent antibody predictor, or wet-lab replacement.

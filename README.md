@@ -6,9 +6,9 @@ Target stable release: v4.1.0; not yet published. The historical v4.0.0 tag
 is unchanged. See the [candidate release notes](docs/RELEASE_NOTES_V4_1.md)
 for the scientific version boundary and qualified environment scope.
 
-Desktop now defaults to Simplified Chinese. The Chinese source checkpoint
-`dd7231b` passed all six remote CI jobs. This rc2 preparation is a **new local,
-unpublished candidate**, not a new remote CI pass or a published installer.
+Desktop defaults to Simplified Chinese. Windows delivery tooling is available
+in source; **no public installer release is available yet**. Check CI for the
+exact source commit; a source CI pass does not qualify clean Windows installation.
 The existing public screenshots show the older English interface.
 See [Chinese Desktop](docs/DESKTOP_ZH_CN.md),
 [deployment checks](docs/ML_DEPLOYMENT_CHECKLIST.md) and the
@@ -21,6 +21,29 @@ and controlled AI explanation. It is decision support for human and wet-lab
 review, not an autonomous scientific decision-maker.
 
 ![Single sequence liability analysis](docs/images/v4/01-single-analysis.png)
+
+## Windows Desktop — ordinary users
+
+**Candidate installer in local preparation; no public installer download yet.**
+The intended file is `AntibodyResearchWorkbench-4.1.0rc2-Windows-x64-Setup.exe`.
+After approval, users will install through a graphical wizard and launch from
+the Start menu, without installing Python, opening PowerShell or using pip.
+Do not download an unrelated installer or assume the v4.0.0 Release has it.
+
+Read the [Windows installation guide](docs/INSTALL_WINDOWS.md),
+[current delivery evidence](docs/RELEASE_DELIVERY_2026-11-07.md) and
+[release acceptance gates](docs/WINDOWS_DELIVERY_ACCEPTANCE.md).
+Target: Windows 10/11 x64. Clean-OS qualification and current-commit CI must be
+completed separately before stable release; local build success is insufficient.
+
+| Base Desktop installer | Optional advanced ML |
+|---|---|
+| Sequence/rule screening, CSV/XLSX/FASTA batch workflows, mutation rule comparison, deterministic summary | Separate frozen models, independently trusted manifest SHA256, runtime dependencies and frozen ESM2 cache required |
+| Literature retrieval needs network; AI explanation needs explicit Provider setup/action | Base exe intentionally excludes torch/transformers; selecting a model directory does not install them |
+| No model or Python setup required for base workflows | Deployment status is visible in Settings; a separately qualified source ML environment is currently required |
+
+**Developers:** [source installation](#developer-installation--windows-powershell)
+remains supported. CLI and Gradio source workflows have not been removed.
 
 ## What it does
 
@@ -65,7 +88,7 @@ The ESM2 models estimate selected experimental properties from a frozen,
 internal AIntibody benchmark. Rule findings and ML estimates are separate
 evidence layers; the product does not create an overall combined score.
 
-## Quick Start — Windows PowerShell
+## Developer installation — Windows PowerShell
 
 The previously qualified Windows x64 base-Desktop profile used official,
 standard-GIL CPython **3.14.8** in a fresh venv. Package compatibility still starts at
@@ -105,20 +128,12 @@ For the local ESM2 workflow, install the optional ML/ESM2 dependencies:
 python -m pip install ".[dl]"
 ```
 
-The frozen deployment-model builder is:
-
-```powershell
-python validation/run_build_deployment_models.py
-```
-
-**Maintainer-only reconstruction, not an installation repair.** This builder
-fits the frozen estimator definitions on the authorized TRAIN+VALIDATION
-bundle. Do not run it just to enable ML in an installed Desktop package or
-during a no-training acceptance audit. Use trusted, hash-verified existing
-artifacts instead; see the [deployment checklist](docs/ML_DEPLOYMENT_CHECKLIST.md).
-
-This command reads the frozen Phase 5 TRAIN + VALIDATION inputs and local
-frozen ESM2 embeddings, then creates these ignored local artifacts:
+Installing extras does not deploy a usable frozen ML model. Obtain authorized
+existing artifacts and an independently trusted manifest digest; see the
+[deployment checklist](docs/ML_DEPLOYMENT_CHECKLIST.md). Ordinary users must
+not run `validation/run_build_deployment_models.py` to repair installation:
+it fits estimators and is a maintainer-only research reconstruction workflow.
+The separate required local files are:
 
 - `artifacts/ml_models/hic_esm2_v1.joblib`
 - `artifacts/ml_models/developability_esm2_v1.joblib`

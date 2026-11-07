@@ -25,6 +25,10 @@ class MainWindow(QMainWindow):
         self.literature = LiteraturePage(); self.literature.set_open_ai(self._open_ai_evidence); self.literature.set_summary_changed_callback(self.single.notify_external_evidence_changed); self.stack.addWidget(self.literature)
         self.settings = SettingsPage(); self._config = self.settings.config(); self.ai = AIAssistantPage(lambda: self._config); self.stack.addWidget(self.ai); self.stack.addWidget(self.settings); self.settings.config_applied.connect(self._set_config); self.settings.config_applied.connect(self.single.notify_config_changed); self.nav.currentRowChanged.connect(self.stack.setCurrentIndex); self.nav.setCurrentRow(0)
         self.nav.setFixedWidth(136)
+        from desktop.version import project_version
+        self.setWindowTitle(self.windowTitle() + " — " + project_version() + " 候选版")
+        self.settings.ml_deployment.deployment_changed.connect(self.single.notify_deployment_changed)
+        self.settings.ml_deployment.deployment_changed.connect(self.mutation.notify_deployment_changed)
         self.content_scroll = QScrollArea()
         self.content_scroll.setWidgetResizable(True)
         self.content_scroll.setWidget(self.stack)

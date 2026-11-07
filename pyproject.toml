@@ -44,6 +44,9 @@ dev = ["pytest>=7.0", "pytest-cov", "matplotlib>=3.5", "setuptools>=77.0.3", "wh
 [project.scripts]
 antibody-risk = "cli:main"
 
+[project.gui-scripts]
+antibody-workbench = "desktop.main:main"
+
 [tool.setuptools]
 py-modules = ["core", "models", "scoring", "batch_analysis", "input_parser", "app", "scan_motifs", "cli", "config"]
 

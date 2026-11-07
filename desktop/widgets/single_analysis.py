@@ -336,11 +336,24 @@ class SingleAnalysisPage(QWidget):
             label.setWordWrap(True)
             layout.addWidget(label)
         layout.addLayout(form)
+        from desktop.ml_deployment import deployment_notice
+        self.ml_deployment_notice = QLabel(deployment_notice())
+        self.ml_deployment_notice.setWordWrap(True)
+        layout.addWidget(self.ml_deployment_notice)
         layout.addWidget(self.ml_status)
         layout.addWidget(self.ml_local_notice)
         layout.addWidget(QLabel(notice_zh(RESEARCH_SUPPORT_NOTICE)))
         layout.addLayout(actions)
         layout.addWidget(self.ml_details)
+
+    def notify_deployment_changed(self):
+        from desktop.ml_deployment import deployment_notice
+        self.ml_deployment_notice.setText(deployment_notice())
+        self._ml_generation += 1
+        self._ml_result = None
+        self._ml_snapshot = None
+        self._clear_ml_output()
+        self.notify_external_evidence_changed()
 
     @staticmethod
     def _valid_chain(value: str) -> tuple[bool, str]:

@@ -26,7 +26,9 @@ class SettingsPage(QWidget):
         form.addRow("模型", self.model); form.addRow("超时（秒）", self.timeout)
         save = QPushButton("保存并应用"); self.test_button = QPushButton("测试连接"); clear = QPushButton("清除凭据"); save.clicked.connect(self.save); self.test_button.clicked.connect(self.test); clear.clicked.connect(self.clear_credentials)
         buttons = QHBoxLayout(); buttons.addWidget(self.test_button); buttons.addWidget(save); buttons.addWidget(clear); buttons.addStretch()
-        layout = QVBoxLayout(self); layout.addLayout(form); layout.addWidget(self.secure); layout.addLayout(buttons); layout.addWidget(self.status); layout.addStretch()
+        from desktop.widgets.ml_deployment import MLDeploymentPanel
+        self.ml_deployment = MLDeploymentPanel(self)
+        layout = QVBoxLayout(self); layout.addLayout(form); layout.addWidget(self.secure); layout.addLayout(buttons); layout.addWidget(self.status); layout.addWidget(self.ml_deployment); layout.addStretch()
 
     def _load_provider(self, provider, base_url="", model=""):
         spec = provider_spec(provider); self.base_url.setText(base_url or (spec.default_base_url or "")); self.model.clear()

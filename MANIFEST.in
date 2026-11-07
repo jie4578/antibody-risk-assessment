@@ -8,5 +8,11 @@ include docs/ML_DEPLOYMENT_CHECKLIST.md
 include docs/RELEASE_READINESS_2026-11-05.md
 include docs/RELEASE_DIAGNOSTIC_FOLLOWUP_2026-11-05.md
 include tools/check_ml_deployment.py
+include tools/build_windows.py
+include tools/test_windows_installer.ps1
+recursive-include packaging/windows *.py *.spec *.iss *.txt
+include docs/INSTALL_WINDOWS.md
+include docs/WINDOWS_DELIVERY_ACCEPTANCE.md
+include docs/RELEASE_DELIVERY_2026-11-07.md
 include docs/environments/windows-base314-observed.txt
 include docs/environments/windows-ml-cpu313-observed.txt

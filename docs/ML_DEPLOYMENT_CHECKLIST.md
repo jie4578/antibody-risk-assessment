@@ -44,7 +44,12 @@ python tools/check_ml_deployment.py --artifact-dir ./artifacts/ml_models --synth
 当前运行时默认位置相对于已安装 `ml_inference` 的上一级，而不是任意当前工作目录。
 源码运行的 `artifacts/ml_models` 不会自动变成 wheel 安装的模型目录。
 维护者可用公开 Python API `FrozenMLPredictor(artifact_dir=...)` 显式指定可信目录；
-Desktop 当前没有独立的模型目录选择器。本轮不改变这一运行时行为。
+Desktop 当前在“设置 → 可选 ML 部署检查”中提供目录和独立可信 manifest 摘要输入。
+配置不复制或反序列化文件；真正发起推理前重新检查摘要和静态前提。
+基础冻结 exe 不包含 torch/transformers，不能向其安装目录运行 pip；目录选择不会
+补齐依赖。高级 ML 目前仍需单独验收的源码环境，不承诺公开可分发模型包。
+GUI 的 READY 只代表静态前提检查通过，不代表已加载模型或完成预测/有效性验收。
+显式推理使用选择的目录，并启用离线缓存模式；冻结运行时与模型定义没有修改。
 因此不要把“源码开发环境能运行”写成“普通 wheel 安装已自动配置好 ML”。
 
 ## 发布记录

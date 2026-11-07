@@ -1,0 +1,49 @@
+name: Windows candidate installer (manual, no release)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2022
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14.8'
+          architecture: x64
+      - name: Build dependencies in dedicated interpreter
+        run: python -m pip install -r packaging/windows/requirements-build.txt
+      - name: Download and verify official Inno Setup
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist/toolchain,dist/toolchain/temp | Out-Null
+          $env:TEMP = (Resolve-Path dist/toolchain/temp).Path
+          $env:TMP = $env:TEMP
+          Invoke-WebRequest https://github.com/jrsoftware/issrc/releases/download/is-6_7_4/innosetup-6.7.4.exe -OutFile dist/toolchain/inno.exe
+          $signature = Get-AuthenticodeSignature dist/toolchain/inno.exe
+          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'Pyrsys B.V.') { throw 'Untrusted compiler' }
+          $compiler = Join-Path (Resolve-Path dist/toolchain).Path 'inno'
+          $process = Start-Process dist/toolchain/inno.exe -ArgumentList @('/SP-','/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/PORTABLE=1',('/DIR="' + $compiler + '"')) -Wait -PassThru -WindowStyle Hidden
+          if ($process.ExitCode -ne 0) { throw 'Compiler setup failed' }
+      - name: Build allowlisted candidate
+        run: python tools/build_windows.py --output dist/candidate --iscc dist/toolchain/inno/ISCC.exe
+      - name: Frozen executable offline smoke (not clean OS qualification)
+        shell: pwsh
+        run: |
+          $env:APPDATA = Join-Path $env:RUNNER_TEMP 'antibody-smoke-roaming'
+          $env:LOCALAPPDATA = Join-Path $env:RUNNER_TEMP 'antibody-smoke-local'
+          $process = Start-Process dist/candidate/onedir/AntibodyResearchWorkbench/AntibodyResearchWorkbench.exe -ArgumentList '--installation-smoke' -Wait -PassThru -WindowStyle Hidden
+          if ($process.ExitCode -ne 0) { throw 'Frozen smoke failed' }
+          $report = Get-Content (Join-Path $env:LOCALAPPDATA 'AntibodyResearchWorkbench/installation-smoke.json') -Raw | ConvertFrom-Json
+          if ($report.status -ne 'PASS') { throw 'Frozen smoke not PASS' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AntibodyResearchWorkbench-4.1.0rc2-Windows-x64-CANDIDATE
+          path: |
+            dist/candidate/*-Setup.exe
+            dist/candidate/SHA256SUMS.txt
+            dist/candidate/build_manifest.json
+          retention-days: 7

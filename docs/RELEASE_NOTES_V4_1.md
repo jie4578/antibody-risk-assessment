@@ -2,15 +2,26 @@
 
 Target stable release: v4.1.0. rc1 preparation: 2026-10-18;
 Chinese rc2 preparation: 2026-11-05.
-This is a local candidate, not a published GitHub/PyPI release or new tag.
+This is a candidate, not a published GitHub/PyPI release or new tag.
 The historical v4.0.0 tag is not moved or amended.
 
 ## rc2 changes and current gate
 
+- Delivery preparation (2026-11-07): allowlisted PyInstaller onedir + Inno Setup
+  installer, bundled base dependencies, Start menu/optional Desktop shortcuts,
+  per-user cache location, uninstall and offline synthetic executable smoke.
+- Settings now provides a static ML deployment check, directories and an
+  independently trusted manifest digest. No model training or inference changes.
+- Read [delivery evidence](RELEASE_DELIVERY_2026-11-07.md) and the
+  [Windows guide](INSTALL_WINDOWS.md). These changes do not inherit CI results
+  from c2b6d19; check the exact checkpoint. Clean Windows and final publication
+  remain separate gates.
+
 - Simplified Chinese Desktop presentation from `dd7231b`; canonical scientific
   identifiers, exported schema and original literature stay unchanged.
-- That source checkpoint passed all six remote CI jobs. The new rc2 metadata,
-  packaging, inspector and documentation changes are not yet remotely tested.
+- That source checkpoint passed all six remote CI jobs; subsequent checkpoint
+  c2b6d19 also passed its CI. Installer/deployment qualification requires its own
+  candidate workflow and clean Windows evidence; ordinary source CI is separate.
 - SPDX MIT expression and explicit LICENSE inclusion, with a matching
   setuptools >=77.0.3 backend floor; no license terms changed.
 - A read-only deployment inspector and installation checklist distinguish

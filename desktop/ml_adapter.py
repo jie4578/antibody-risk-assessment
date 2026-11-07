@@ -14,6 +14,7 @@ from typing import Any
 from core import normalize_sequence, validate_sequence
 from ml_inference.predictor import FrozenMLPredictor, get_ml_runtime_status
 from desktop.ml_metadata import BENCHMARK_ID, DEVELOPABILITY_MODEL_ID, HIC_MODEL_ID, MODEL_MANIFEST_ID
+from desktop.ml_deployment import inspect_deployment, load_config, MESSAGES
 
 
 STATUS_READY = "READY"
@@ -118,24 +119,40 @@ class DesktopMLService:
     def __init__(self) -> None:
         self._predictor: FrozenMLPredictor | None = None
         self._prediction_cache: dict[tuple[str, str, str, str, str, str], dict[str, dict[str, Any]]] = {}
+        self._deployment_snapshot = None
 
     def status(self) -> dict[str, Any]:
         try:
-            status = dict(get_ml_runtime_status())
-            status["dependencies_available"] = _dependencies_available()
-            if not status.get("model_artifacts_available"):
-                status["status"] = STATUS_MODEL_ARTIFACTS_MISSING
-            elif not status["dependencies_available"]:
-                status["status"] = STATUS_DEPENDENCY_MISSING
-            elif not status.get("esm_cache_available"):
-                status["status"] = STATUS_ESM_MODEL_NOT_CACHED
-            else:
-                status["status"] = STATUS_READY
-            return status
+            return inspect_deployment()
         except Exception as error:
             return {"status": STATUS_ERROR, "error": str(error)}
 
     def predict(self, vh: str, vl: str) -> dict[str, dict[str, Any]]:
+        # Injected test predictors remain independent of deployment files. Real
+        # predictors recheck trust before any cached response or deserialization.
+        if self._predictor is None or self._deployment_snapshot is not None:
+            config = load_config()
+            report = inspect_deployment(config)
+            if report["status"] != STATUS_READY:
+                raise ValueError(report["message"])
+            if config != self._deployment_snapshot:
+                self._prediction_cache.clear()
+                self._predictor = FrozenMLPredictor(artifact_dir=config["artifact_dir"])
+                self._deployment_snapshot = dict(config)
+            # Frozen runtime reads these standard cache settings. Only apply
+            # after explicit deployment selection and only for local inference.
+            import os
+            import sys
+            from pathlib import Path
+            if config.get("hf_home"):
+                hub_constants = sys.modules.get("huggingface_hub.constants")
+                selected_cache = Path(config["hf_home"]).resolve() / "hub"
+                if hub_constants is not None and Path(hub_constants.HF_HUB_CACHE).resolve() != selected_cache:
+                    raise ValueError("ESM2 缓存位置已改变，请重启软件后再运行 ML。")
+                os.environ["HF_HOME"] = config["hf_home"]
+                os.environ["HF_HUB_CACHE"] = str(selected_cache)
+            os.environ["HF_HUB_OFFLINE"] = "1"
+            os.environ["TRANSFORMERS_OFFLINE"] = "1"
         key = prediction_cache_key(vh, vl)
         if key in self._prediction_cache:
             return self._prediction_cache[key]
@@ -166,6 +183,9 @@ def status_code(status: object) -> str:
 
 
 def status_message(status: object) -> str:
+    code = status_code(status)
+    if code in MESSAGES:
+        return MESSAGES[code]
     messages = {
         STATUS_MODEL_ARTIFACTS_MISSING: "Local ML model artifacts are not available.",
         STATUS_ESM_MODEL_NOT_CACHED: "The local sequence model is not cached. Install/download it before running ML estimates.",

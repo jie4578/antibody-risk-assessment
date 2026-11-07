@@ -1,0 +1,8 @@
+# Dedicated build venv; not an end-user installation command.
+PyInstaller==6.22.3
+PySide6==6.12.0
+pandas==3.1.1
+numpy==2.5.4
+openpyxl==3.1.5
+keyring==25.7.0
+openai==3.46.0

@@ -69,7 +69,18 @@ class MutationPage(QWidget):
         grid.addRow("不可开发类别概率 P(NOT_DEVELOPABLE)", self._ml_values_row(self.ml_probability_baseline, self.ml_probability_mutant, self.ml_probability_delta))
         actions = QHBoxLayout(); actions.addWidget(self.ml_run_button); actions.addWidget(self.ml_details_button); actions.addStretch()
         layout = QVBoxLayout(self.ml_section)
+        from desktop.ml_deployment import deployment_notice
+        self.ml_deployment_notice = QLabel(deployment_notice())
+        self.ml_deployment_notice.setWordWrap(True)
+        layout.addWidget(self.ml_deployment_notice)
         layout.addLayout(grid); layout.addWidget(QLabel(notice_zh(RESEARCH_SUPPORT_NOTICE))); layout.addWidget(self.ml_status); layout.addWidget(self.ml_warning); layout.addLayout(actions); layout.addWidget(self.ml_details)
+
+    def notify_deployment_changed(self):
+        from desktop.ml_deployment import deployment_notice
+        self.ml_deployment_notice.setText(deployment_notice())
+        self._invalidate_ml()
+        if self._on_state_changed:
+            self._on_state_changed()
 
     @staticmethod
     def _ml_values_row(baseline, mutant, delta):
