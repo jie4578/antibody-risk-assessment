@@ -34,8 +34,16 @@ $startShortcut = Join-Path $groupDirectory '抗体科研工作台（候选版）
 if (-not (Test-Path -LiteralPath $startShortcut) -or -not (Test-Path -LiteralPath $desktopShortcut)) { throw 'Shortcuts missing' }
 $shell = New-Object -ComObject WScript.Shell
 $shortcutTarget = $shell.CreateShortcut($startShortcut).TargetPath
-$shortcutDiagnostic = @{shortcut=$startShortcut; actual_target=$shortcutTarget; expected_target=$executable}
+Copy-Item -LiteralPath $startShortcut -Destination (Join-Path $work 'start-menu.lnk')
+Copy-Item -LiteralPath $desktopShortcut -Destination (Join-Path $work 'desktop.lnk')
+# The WSH automation getter may return empty for a Shell-created link. Read
+# the same link through the documented ShellLinkObject.Path API as well.
+$shellApplication = New-Object -ComObject Shell.Application
+$shellFolder = $shellApplication.NameSpace([IO.Path]::GetDirectoryName($startShortcut))
+$shellTarget = $shellFolder.ParseName([IO.Path]::GetFileName($startShortcut)).GetLink.Path
+$shortcutDiagnostic = @{shortcut=$startShortcut; wscript_target=$shortcutTarget; shell_target=$shellTarget; expected_target=$executable}
 $shortcutDiagnostic | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $work 'shortcut-diagnostic.json') -Encoding UTF8
+if ([string]::IsNullOrEmpty($shortcutTarget)) { $shortcutTarget = $shellTarget }
 if ($shortcutTarget -ne $executable) { throw ('Shortcut points to wrong executable: ' + ($shortcutDiagnostic | ConvertTo-Json -Compress)) }
 $smokeProcess = Start-Process -FilePath $executable -ArgumentList '--installation-smoke' -Wait -PassThru -WindowStyle Hidden -RedirectStandardError (Join-Path $work 'smoke-stderr.txt')
 if ($smokeProcess.ExitCode -ne 0) { throw "Installed executable smoke failed: $($smokeProcess.ExitCode)" }

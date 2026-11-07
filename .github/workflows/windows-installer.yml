@@ -78,5 +78,6 @@ jobs:
             dist/installer-acceptance/*.log
             dist/installer-acceptance/*diagnostic.json
             dist/installer-acceptance/*stderr.txt
+            dist/installer-acceptance/*.lnk
           if-no-files-found: ignore
           retention-days: 3
