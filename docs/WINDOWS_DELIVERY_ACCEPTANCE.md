@@ -2,6 +2,8 @@
 
 当前候选：4.1.0rc2；目标稳定版：4.1.0。历史 v4.0.0 标签和 Release 不改。
 最新执行证据见 [2026-11-07 交付记录](RELEASE_DELIVERY_2026-11-07.md)。
+许可工程核对见 [第三方审核](WINDOWS_THIRD_PARTY_AUDIT.md)。用户已授权上传 rc2
+免安装预发布 ZIP；此授权不创建稳定版 v4.1.0，也不把未完成的干净系统验收视为通过。
 
 ## 必须区分的验证层次
 
@@ -44,4 +46,7 @@ python tools/build_windows.py --output dist/windows_delivery/build-001 --iscc C:
 源码 CLI/Gradio 功能仍保留。所有模型/缓存与构建产物保持 Git 忽略。
 
 CI 工作流只手动构建和上传短期 Actions 候选 artifact，绝不创建 Release。
+工作流还会重现官方来源声明、从 ZIP 解压启动，并执行当前用户安装、快捷方式、
+同版本重装、卸载和配置保留检查。它运行在 Windows Server 2022 hosted runner，
+不能替代干净 Win10/Win11 人工验收。公开 ZIP 与源码附件由维护者单独核对后上传。
 手动执行前应核对候选提交和上传内容；仅有 YAML 或普通源码 CI 不能宣称安装器已通过。

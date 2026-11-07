@@ -1,0 +1,63 @@
+{
+  "purpose": "Exact-version upstream materials for the Windows 4.1.0rc2 base Desktop distribution",
+  "retrieved_date": "2026-11-07",
+  "hash_note": "SHA256 calculated from retrieved bytes, not claimed to be an upstream signature. HTTPS official source URLs below.",
+  "sources": [
+    {
+      "filename": "qtbase-everywhere-src-6.12.0.tar.xz",
+      "url": "https://download.qt.io/official_releases/qt/6.12/6.12.0/submodules/qtbase-everywhere-src-6.12.0.tar.xz",
+      "sha256": "a951bd163c7b80fc6b8c88d7668fb56abf91c152373e13c10666763238131307",
+      "kind": "tar",
+      "companion_source_asset": true
+    },
+    {
+      "filename": "qtsvg-everywhere-src-6.12.0.tar.xz",
+      "url": "https://download.qt.io/official_releases/qt/6.12/6.12.0/submodules/qtsvg-everywhere-src-6.12.0.tar.xz",
+      "sha256": "e4ab39534ec97987b1b9b60ef7f4d3253d5912a69f8c713a01753174a4029331",
+      "kind": "tar",
+      "companion_source_asset": true
+    },
+    {
+      "filename": "qtimageformats-everywhere-src-6.12.0.tar.xz",
+      "url": "https://download.qt.io/official_releases/qt/6.12/6.12.0/submodules/qtimageformats-everywhere-src-6.12.0.tar.xz",
+      "sha256": "0943132b5db8de6b6a7f1d162682173e8763c7ed94e80fd39113292845f67762",
+      "kind": "tar",
+      "companion_source_asset": true
+    },
+    {
+      "filename": "pyside-setup-everywhere-src-6.12.0.tar.xz",
+      "url": "https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-6.12.0-src/pyside-setup-everywhere-src-6.12.0.tar.xz",
+      "sha256": "099c1a597cf33c1b000e11cf68a0b82d216fb802bf81726efc720394f10c7751",
+      "kind": "tar",
+      "companion_source_asset": true
+    },
+    {
+      "filename": "mesa-11.2.2.tar.xz",
+      "url": "https://archive.mesa3d.org/older-versions/11.x/11.2.2/mesa-11.2.2.tar.xz",
+      "sha256": "40e148812388ec7c6d7b6657d5a16e2e8dabba8b97ddfceea5197947647bdfb4",
+      "kind": "tar",
+      "companion_source_asset": true
+    },
+    {
+      "filename": "LLVM-3.6.2-LICENSE.txt",
+      "url": "https://raw.githubusercontent.com/llvm/llvm-project/llvmorg-3.6.2/llvm/LICENSE.TXT",
+      "sha256": "e3bc36440fc927c62d5cc24efeefe225a14d4e34ffeb0c92e430625cce9ee444",
+      "kind": "text",
+      "companion_source_asset": false
+    },
+    {
+      "filename": "OpenSSL-3.5.9-LICENSE.txt",
+      "url": "https://raw.githubusercontent.com/openssl/openssl/openssl-3.5.9/LICENSE.txt",
+      "sha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a",
+      "kind": "text",
+      "companion_source_asset": false
+    },
+    {
+      "filename": "opengl32sw-64-mesa_11_2_2-signed_sha256.7z",
+      "url": "https://download.qt.io/development_releases/prebuilt/llvmpipe/windows/opengl32sw-64-mesa_11_2_2-signed_sha256.7z",
+      "sha256": "c61f801c1760aa24b02c7a8354323cddf368b86f8f5c34b50b3b224f7d728afd",
+      "kind": "binary_reference",
+      "companion_source_asset": false
+    }
+  ]
+}

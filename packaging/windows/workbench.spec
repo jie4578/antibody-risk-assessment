@@ -14,6 +14,8 @@ datas = [(str(root / 'LICENSE'), '.'), (str(root / 'example_antibodies.csv'), 'e
          (str(resources / 'VERSION.txt'), '.'),
          (str(root / 'docs/INSTALL_WINDOWS.md'), 'docs'),
          (str(root / 'docs/ML_DEPLOYMENT_CHECKLIST.md'), 'docs')]
+datas += [(str(root / 'docs/WINDOWS_THIRD_PARTY_AUDIT.md'), 'docs')]
+datas += [(str(root / 'docs/WINDOWS_DELIVERY_ACCEPTANCE.md'), 'docs')]
 datas += [(str(image), 'docs/images/windows') for image in (root / 'docs/images/windows').glob('*.png')]
 for package in ('keyring', 'openai', 'numpy', 'pandas', 'PySide6'):
     datas += copy_metadata(package)

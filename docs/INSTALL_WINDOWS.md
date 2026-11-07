@@ -2,12 +2,26 @@
 
 这是面向不使用 Python 的用户的基础 Desktop 安装说明。目标为 Windows 10/11
 x64；“目标支持”不等于已经完成两个系统的干净环境验收。正式版目标为 4.1.0，
-当前仍是候选版。**安装器目前仅在本地准备，尚无公开下载链接。**
+当前仍是候选版。优先使用免安装 ZIP；安装器尚不作为公开推荐下载。
 请勿把历史 v4.0.0 Release 当作此安装包的下载入口。
 
 ## 下载哪个文件
 
-维护者完成发布审批后，应提供：
+免安装候选下载入口：[v4.1.0rc2 预发布](https://github.com/jie4578/antibody-risk-assessment/releases/tag/v4.1.0rc2)。
+以该页实际已发布的附件为准，入口准备期间可能尚不可用。
+
+选择 `AntibodyResearchWorkbench-4.1.0rc2-Windows-x64-Portable.zip`，核对同页
+`SHA256SUMS.txt`，右键“全部解压”，再进入 AntibodyResearchWorkbench 文件夹
+双击主 exe。必须保留 `_internal`，不能在 ZIP 内启动或单独复制 exe。
+无需安装 Python；免安装版不创建快捷方式和卸载注册项。删除解压目录即可移除
+程序，用户配置、缓存、凭据库和自行导出文件另行保留。
+
+当前候选未签名，完整验收范围见 Release 说明及
+[验收门槛](WINDOWS_DELIVERY_ACCEPTANCE.md)。许可证见
+[第三方审核](WINDOWS_THIRD_PARTY_AUDIT.md) 和随包 THIRD_PARTY_NOTICES；同页 Qt/PySide
+源码附件供许可履约及有需要的开发者使用，普通用户无需下载这些源码包。
+
+以下安装器说明供独立验收使用，不能用免安装成功代替 Setup 验收：
 
 `AntibodyResearchWorkbench-4.1.0rc2-Windows-x64-Setup.exe`
 

@@ -30,15 +30,33 @@ jobs:
           if ($process.ExitCode -ne 0) { throw 'Compiler setup failed' }
       - name: Build allowlisted candidate
         run: python tools/build_windows.py --output dist/candidate --iscc dist/toolchain/inno/ISCC.exe
+      - name: Reproduce hash-pinned upstream notices
+        shell: pwsh
+        run: |
+          python -m tools.collect_native_notices --cache dist/license-sources --output dist/native-notices --download
+          if ($LASTEXITCODE -ne 0) { throw 'Native notice acquisition failed' }
+          $expected = (Get-FileHash packaging/windows/licenses/native/NOTICES.txt).Hash
+          if ((Get-FileHash dist/native-notices/NOTICES.txt).Hash -ne $expected) { throw 'Native notices not reproducible' }
+      - name: Package and extract portable candidate
+        shell: pwsh
+        run: |
+          python -m tools.make_windows_portable --bundle dist/candidate/onedir/AntibodyResearchWorkbench --output dist/candidate/AntibodyResearchWorkbench-4.1.0rc2-Windows-x64-Portable.zip
+          if ($LASTEXITCODE -ne 0) { throw 'Portable packaging failed' }
+          Expand-Archive dist/candidate/*-Portable.zip dist/portable-smoke
       - name: Frozen executable offline smoke (not clean OS qualification)
         shell: pwsh
         run: |
           $env:APPDATA = Join-Path $env:RUNNER_TEMP 'antibody-smoke-roaming'
           $env:LOCALAPPDATA = Join-Path $env:RUNNER_TEMP 'antibody-smoke-local'
-          $process = Start-Process dist/candidate/onedir/AntibodyResearchWorkbench/AntibodyResearchWorkbench.exe -ArgumentList '--installation-smoke' -Wait -PassThru -WindowStyle Hidden
+          $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot"
+          $process = Start-Process dist/portable-smoke/AntibodyResearchWorkbench/AntibodyResearchWorkbench.exe -ArgumentList '--installation-smoke' -Wait -PassThru -WindowStyle Hidden
           if ($process.ExitCode -ne 0) { throw 'Frozen smoke failed' }
           $report = Get-Content (Join-Path $env:LOCALAPPDATA 'AntibodyResearchWorkbench/installation-smoke.json') -Raw | ConvertFrom-Json
           if ($report.status -ne 'PASS') { throw 'Frozen smoke not PASS' }
+      - name: Current-user installation, reinstall and uninstall (hosted Server, not Win10/11 qualification)
+        shell: pwsh
+        run: |
+          ./tools/test_windows_installer.ps1 -Installer dist/candidate/AntibodyResearchWorkbench-4.1.0rc2-Windows-x64-Setup.exe -WorkDirectory (Join-Path $PWD 'dist/installer-acceptance')
       - uses: actions/upload-artifact@v4
         with:
           name: AntibodyResearchWorkbench-4.1.0rc2-Windows-x64-CANDIDATE
@@ -46,4 +64,8 @@ jobs:
             dist/candidate/*-Setup.exe
             dist/candidate/SHA256SUMS.txt
             dist/candidate/build_manifest.json
+            dist/candidate/*-Portable.zip
+            dist/candidate/*-Portable.sha256
+            dist/candidate/*-Portable.manifest.json
+            dist/installer-acceptance/acceptance.json
           retention-days: 7

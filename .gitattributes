@@ -1,2 +1,4 @@
 # This immutable result is sealed by its byte digest; preserve LF on Windows.
 validation/external_developability/phase8c_hic_external_result.json text eol=lf
+# Reproduced verbatim notice aggregation is checked by its byte digest in CI.
+packaging/windows/licenses/native/NOTICES.txt text eol=lf whitespace=-blank-at-eol,-blank-at-eof

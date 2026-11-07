@@ -14,12 +14,11 @@ import platform
 import shutil
 import subprocess
 import sys
-import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGES = ("desktop", "ml_inference", "agent", "literature", "rag")
 TOP_LEVEL = ("core.py", "scoring.py", "models.py", "batch_analysis.py", "input_parser.py", "config.py", "LICENSE", "pyproject.toml", "example_antibodies.csv")
-DOCUMENTS = ("docs/INSTALL_WINDOWS.md", "docs/ML_DEPLOYMENT_CHECKLIST.md")
+DOCUMENTS = ("docs/INSTALL_WINDOWS.md", "docs/ML_DEPLOYMENT_CHECKLIST.md", "docs/WINDOWS_THIRD_PARTY_AUDIT.md", "docs/WINDOWS_DELIVERY_ACCEPTANCE.md")
 
 
 def digest(path):
@@ -35,7 +34,7 @@ def snapshot(destination):
         raise ValueError("Use a new build directory; existing builds are never deleted")
     files = [ROOT / name for name in TOP_LEVEL + DOCUMENTS]
     for package in PACKAGES + ("packaging/windows",):
-        files += [p for p in (ROOT / package).rglob("*") if p.is_file() and p.suffix in {".py", ".spec", ".iss", ".txt"} and "__pycache__" not in p.parts]
+        files += [p for p in (ROOT / package).rglob("*") if p.is_file() and p.suffix in {".py", ".spec", ".iss", ".txt", ".json"} and "__pycache__" not in p.parts]
     files += list((ROOT / "docs/images/windows").glob("*.png"))
     result = {}
     for source in files:
@@ -49,6 +48,14 @@ def snapshot(destination):
     return result
 
 
+def is_notice_file(entry):
+    path = Path(entry)
+    return ("__pycache__" not in path.parts
+            and path.suffix.lower() not in {".py", ".pyc", ".pyo"}
+            and any(part.lower().startswith(("license", "licence", "copying", "notice"))
+                    for part in path.parts))
+
+
 def notices(destination):
     destination.mkdir(parents=True)
     records = []
@@ -58,7 +65,7 @@ def notices(destination):
         folder.mkdir()
         license_files = []
         for entry in dist.files or []:
-            if any(part.lower().startswith(("license", "copying", "notice")) for part in entry.parts):
+            if is_notice_file(entry):
                 source = Path(dist.locate_file(entry))
                 if source.is_file() and source.stat().st_size < 5_000_000:
                     target = folder / Path(*[p for p in entry.parts if p not in {"..", "."}])
@@ -77,11 +84,15 @@ def notices(destination):
         "Users may replace compatible Qt/PySide DLLs in _internal; no restriction on debugging such modifications.\n"
         "Corresponding upstream source: https://download.qt.io/official_releases/QtForPython/\n"
         "Qt source: https://download.qt.io/official_releases/qt/\n"
-        "Before public distribution, archive the exact corresponding source and review license obligations.\n"
+        "Exact source URLs, SHA256 and upstream native notices: native/source_manifest.json and native/NOTICES.txt.\n"
+        "Matching Qt/PySide sources are supplied as companion prerelease assets; see docs/WINDOWS_THIRD_PARTY_AUDIT.md.\n"
         "PyInstaller bootloader distribution exception: https://pyinstaller.org/en/stable/license.html\n"
         "This inventory is not a legal certification or a grant of rights to separately supplied models.\n", encoding="utf-8")
-    for license_file in (ROOT / "packaging/windows/licenses").glob("*.txt"):
-        shutil.copyfile(license_file, destination / license_file.name)
+    for license_file in (ROOT / "packaging/windows/licenses").rglob("*"):
+        if license_file.is_file():
+            target = destination / license_file.relative_to(ROOT / "packaging/windows/licenses")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(license_file, target)
     return records
 
 
@@ -100,6 +111,7 @@ def audit_bundle(directory):
 
 
 def main():
+    import tomllib  # Build interpreter is pinned to 3.14.8; helpers also import on 3.10.
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--iscc", type=Path)
