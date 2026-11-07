@@ -1,6 +1,11 @@
 name: Windows candidate installer (manual, no release)
 on:
   workflow_dispatch:
+    inputs:
+      distribution_rights_confirmed:
+        description: 'Maintainer has separately confirmed runtime redistribution rights'
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -58,6 +63,7 @@ jobs:
         run: |
           ./tools/test_windows_installer.ps1 -Installer dist/candidate/AntibodyResearchWorkbench-4.1.0rc2-Windows-x64-Setup.exe -WorkDirectory (Join-Path $PWD 'dist/installer-acceptance')
       - uses: actions/upload-artifact@v4
+        if: inputs.distribution_rights_confirmed
         with:
           name: AntibodyResearchWorkbench-4.1.0rc2-Windows-x64-CANDIDATE
           path: |
@@ -68,6 +74,14 @@ jobs:
             dist/candidate/*-Portable.sha256
             dist/candidate/*-Portable.manifest.json
             dist/installer-acceptance/acceptance.json
+          retention-days: 7
+      - name: Preserve acceptance report without binaries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Windows-installer-acceptance-report
+          path: dist/installer-acceptance/acceptance.json
+          if-no-files-found: ignore
           retention-days: 7
       - name: Preserve acceptance diagnostics on failure
         if: failure()

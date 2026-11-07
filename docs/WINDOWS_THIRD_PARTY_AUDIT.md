@@ -49,6 +49,9 @@ University of Illinois/NCSA 声明及其第三方声明；原始 Mesa 源码提�
 
 MSVC 运行库来自官方 CPython / PySide / NumPy wheels，保留原 DLL，不单独作为
 通用运行库售卖。其分发仍受 Microsoft 的运行库条款约束，不属于项目 MIT 授权。
+**当前分发权利待确认**：维护者表示没有或不确定是否具有适用的 Visual Studio /
+Build Tools 使用许可。仅确认 DLL 来自官方 wheels 不足以确认该维护者的再分发
+授权；当前候选只上传 GitHub 草稿，不能将本工程资料核对标记为全部许可通过。
 SQLite 按原公共领域声明保留。此工程审核不是完整漏洞扫描或供应链认证。
 
 ## 重现与验收边界

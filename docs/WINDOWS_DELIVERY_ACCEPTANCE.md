@@ -45,7 +45,9 @@ python tools/build_windows.py --output dist/windows_delivery/build-001 --iscc C:
 两份脏 CLI、本地数据、模型和视频不会进入快照。基础 exe 不包含 Gradio/训练模块；
 源码 CLI/Gradio 功能仍保留。所有模型/缓存与构建产物保持 Git 忽略。
 
-CI 工作流只手动构建和上传短期 Actions 候选 artifact，绝不创建 Release。
+CI 工作流只手动构建，绝不创建 Release。默认仅保留验收报告；只有维护者另行确认
+运行库分发权利并显式选择 `distribution_rights_confirmed` 才上传含二进制的
+短期候选 artifact。这个输入不是自动取得许可的方式。
 工作流还会重现官方来源声明、从 ZIP 解压启动，并执行当前用户安装、快捷方式、
 同版本重装、卸载和配置保留检查。它运行在 Windows Server 2022 hosted runner，
 不能替代干净 Win10/Win11 人工验收。公开 ZIP 与源码附件由维护者单独核对后上传。
