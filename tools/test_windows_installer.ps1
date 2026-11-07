@@ -33,7 +33,10 @@ if (-not (Test-Path -LiteralPath $executable)) { throw 'Installed executable mis
 $startShortcut = Join-Path $groupDirectory '抗体科研工作台（候选版）.lnk'
 if (-not (Test-Path -LiteralPath $startShortcut) -or -not (Test-Path -LiteralPath $desktopShortcut)) { throw 'Shortcuts missing' }
 $shell = New-Object -ComObject WScript.Shell
-if ($shell.CreateShortcut($startShortcut).TargetPath -ne $executable) { throw 'Shortcut points to wrong executable' }
+$shortcutTarget = $shell.CreateShortcut($startShortcut).TargetPath
+$shortcutDiagnostic = @{shortcut=$startShortcut; actual_target=$shortcutTarget; expected_target=$executable}
+$shortcutDiagnostic | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $work 'shortcut-diagnostic.json') -Encoding UTF8
+if ($shortcutTarget -ne $executable) { throw ('Shortcut points to wrong executable: ' + ($shortcutDiagnostic | ConvertTo-Json -Compress)) }
 $smokeProcess = Start-Process -FilePath $executable -ArgumentList '--installation-smoke' -Wait -PassThru -WindowStyle Hidden -RedirectStandardError (Join-Path $work 'smoke-stderr.txt')
 if ($smokeProcess.ExitCode -ne 0) { throw "Installed executable smoke failed: $($smokeProcess.ExitCode)" }
 $smoke = Get-Content -LiteralPath (Join-Path $env:LOCALAPPDATA 'AntibodyResearchWorkbench/installation-smoke.json') -Raw | ConvertFrom-Json

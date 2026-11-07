@@ -69,3 +69,14 @@ jobs:
             dist/candidate/*-Portable.manifest.json
             dist/installer-acceptance/acceptance.json
           retention-days: 7
+      - name: Preserve acceptance diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Windows-installer-failure-diagnostics
+          path: |
+            dist/installer-acceptance/*.log
+            dist/installer-acceptance/*diagnostic.json
+            dist/installer-acceptance/*stderr.txt
+          if-no-files-found: ignore
+          retention-days: 3
