@@ -22,6 +22,32 @@ review, not an autonomous scientific decision-maker.
 
 ![Single sequence liability analysis](docs/images/v4/01-single-analysis.png)
 
+## Protein Engineering — independent data and initial-rate foundation
+
+The same PySide6 Desktop now has a **蛋白质工程 / Protein Engineering** entry.
+Phase A integrates the Phase 0 documents and nine blank templates. The initial
+Phase B foundation provides local SQLite migrations, target/variant/sample/batch
+records, validated CSV/XLSX preview/import, original-byte snapshots and SHA256
+provenance. Phase B.1 audits scientific data integrity and adds lossless local export.
+Phase C.1 adds explicitly windowed time-course slopes, blank correction, optional
+documented product calibration, conditional standard errors and QC. It does not
+establish biochemical initial-rate validity or run predictions/model training.
+
+- [Actual implemented scope and limitations](docs/protein_engineering/FOUNDATION_STATUS.md)
+- [Scientific data audit](docs/protein_engineering/PHASE_B1_DATA_AUDIT.md)
+- [Initial-rate workflow and limitations](docs/protein_engineering/PHASE_C1_INITIAL_RATE_IMPLEMENTATION.md)
+- [Original six-stage roadmap](docs/PROTEIN_ENGINEERING_ROADMAP.md)
+- [Data intake](docs/protein_engineering/PHASE0_DATA_INTAKE.md),
+  [dictionary](docs/protein_engineering/DATA_DICTIONARY.md),
+  [analysis requirements](docs/protein_engineering/ANALYSIS_REQUIREMENTS.md)
+- [Blank CSV templates](docs/protein_engineering/templates/)
+
+The original antibody workflows, scientific rules, frozen models and validation
+results remain separate. The original Phase 1 is only partly implemented;
+Enzyme analysis is only partly implemented; Michaelis–Menten, AI validation,
+structure analysis and DBTL remain planned. No real enzyme measurements are assumed.
+No new release is published by this integration.
+
 ## Windows Desktop — ordinary users
 
 **Candidate installer in local preparation; no public installer download yet.**

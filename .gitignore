@@ -71,3 +71,13 @@ run_utf8.bat
 antibody_batch_results.csv
 antibody_batch_results.xlsx
 antibody_batch_template.xlsx
+
+# Local Protein Engineering observations/provenance; package only blank templates.
+*.sqlite3
+*.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm
+*.db-journal
+*.db-wal
+*.db-shm
+protein-private-snapshot*.json

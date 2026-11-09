@@ -52,7 +52,20 @@ py-modules = ["core", "models", "scoring", "batch_analysis", "input_parser", "ap
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["ml*", "rag*", "agent*", "literature*", "desktop*"]
+include = ["ml*", "rag*", "agent*", "literature*", "desktop*", "protein_engineering*"]
+
+[tool.setuptools.package-data]
+protein_engineering = [
+    "resources/phase0/FOUNDATION_STATUS.md", "resources/phase0/PROTEIN_ENGINEERING_ROADMAP.md",
+    "resources/phase0/PHASE0_DATA_INTAKE.md", "resources/phase0/DATA_DICTIONARY.md",
+    "resources/phase0/ANALYSIS_REQUIREMENTS.md", "resources/phase0/PHASE0_PACKAGE_PROVENANCE.json",
+    "resources/phase0/PHASE_C1_INITIAL_RATE_IMPLEMENTATION.md",
+    "resources/phase0/templates/enzyme_targets_template.csv", "resources/phase0/templates/protein_variants_template.csv",
+    "resources/phase0/templates/samples_template.csv", "resources/phase0/templates/experiment_batches_template.csv",
+    "resources/phase0/templates/assay_results_template.csv", "resources/phase0/templates/kinetic_timecourse_template.csv",
+    "resources/phase0/templates/ai_predictions_template.csv", "resources/phase0/templates/structure_assets_template.csv",
+    "resources/phase0/templates/source_manifest_template.csv",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

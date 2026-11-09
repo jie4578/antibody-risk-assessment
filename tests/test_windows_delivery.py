@@ -94,7 +94,7 @@ def test_portable_requires_notices(bundle, tmp_path):
         package(bundle, tmp_path / "bad.zip")
 
 
-@pytest.mark.parametrize("name", ["model.joblib", "labels.xlsx", ".env", "settings.json"])
+@pytest.mark.parametrize("name", ["model.joblib", "labels.xlsx", ".env", "settings.json", "private.csv", "research.sqlite3", "research.sqlite3-wal", "research.sqlite3-shm", "research.sqlite3-journal", "protein-private-snapshot.json"])
 def test_private_or_model_data_rejected(bundle, tmp_path, name):
     (bundle / name).write_bytes(b"synthetic")
     with pytest.raises(ValueError, match="Forbidden files"):

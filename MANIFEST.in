@@ -10,9 +10,15 @@ include docs/RELEASE_DIAGNOSTIC_FOLLOWUP_2026-11-05.md
 include tools/check_ml_deployment.py
 include tools/build_windows.py
 include tools/test_windows_installer.ps1
-recursive-include packaging/windows *.py *.spec *.iss *.txt
+recursive-include packaging/windows *.py *.spec *.iss *.txt *.json
 include docs/INSTALL_WINDOWS.md
 include docs/WINDOWS_DELIVERY_ACCEPTANCE.md
 include docs/RELEASE_DELIVERY_2026-11-07.md
 include docs/environments/windows-base314-observed.txt
 include docs/environments/windows-ml-cpu313-observed.txt
+include docs/PROTEIN_ENGINEERING_ROADMAP.md
+recursive-include docs/protein_engineering *.md *.csv *.json
+recursive-include protein_engineering/resources *.md *.csv *.json
+include tools/collect_native_notices.py
+include tools/make_windows_portable.py
+include docs/WINDOWS_THIRD_PARTY_AUDIT.md

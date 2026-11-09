@@ -19,7 +19,7 @@ def test_all_six_pages_and_main_actions_are_chinese(qt_application, isolated_set
     from desktop.widgets.batch_analysis import BatchAnalysisPage
     window = MainWindow()
     assert "抗体" in window.windowTitle()
-    assert [window.nav.item(i).text() for i in range(window.nav.count())] == ["单条分析", "批量分析", "突变", "文献", "AI 助手", "设置"]
+    assert [window.nav.item(i).text() for i in range(window.nav.count())] == ["单条分析", "批量分析", "突变", "文献", "AI 助手", "设置", "蛋白质工程"]
     assert window.single.analyze_button.text() == "分析"
     assert window.single.build_summary_button.text() == "生成科研摘要"
     assert window.single.copilot_explain_button.text() == "使用 AI 解读"

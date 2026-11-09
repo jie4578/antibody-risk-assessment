@@ -2,3 +2,31 @@
 validation/external_developability/phase8c_hic_external_result.json text eol=lf
 # Reproduced verbatim notice aggregation is checked by its byte digest in CI.
 packaging/windows/licenses/native/NOTICES.txt text eol=lf whitespace=-blank-at-eol,-blank-at-eof
+# Phase 0 originals and runtime copies are sealed by their source SHA256.
+# Preserve original LF bytes on Windows; do not normalize unrelated files.
+docs/protein_engineering/PHASE0_DATA_INTAKE.md text eol=lf
+protein_engineering/resources/phase0/PHASE0_DATA_INTAKE.md text eol=lf
+docs/protein_engineering/templates/assay_results_template.csv text eol=lf
+protein_engineering/resources/phase0/templates/assay_results_template.csv text eol=lf
+docs/protein_engineering/templates/samples_template.csv text eol=lf
+protein_engineering/resources/phase0/templates/samples_template.csv text eol=lf
+docs/protein_engineering/templates/experiment_batches_template.csv text eol=lf
+protein_engineering/resources/phase0/templates/experiment_batches_template.csv text eol=lf
+docs/protein_engineering/templates/protein_variants_template.csv text eol=lf
+protein_engineering/resources/phase0/templates/protein_variants_template.csv text eol=lf
+docs/protein_engineering/templates/source_manifest_template.csv text eol=lf
+protein_engineering/resources/phase0/templates/source_manifest_template.csv text eol=lf
+docs/protein_engineering/templates/kinetic_timecourse_template.csv text eol=lf
+protein_engineering/resources/phase0/templates/kinetic_timecourse_template.csv text eol=lf
+docs/protein_engineering/templates/structure_assets_template.csv text eol=lf
+protein_engineering/resources/phase0/templates/structure_assets_template.csv text eol=lf
+docs/protein_engineering/templates/enzyme_targets_template.csv text eol=lf
+protein_engineering/resources/phase0/templates/enzyme_targets_template.csv text eol=lf
+docs/protein_engineering/templates/ai_predictions_template.csv text eol=lf
+protein_engineering/resources/phase0/templates/ai_predictions_template.csv text eol=lf
+docs/protein_engineering/DATA_DICTIONARY.md text eol=lf
+protein_engineering/resources/phase0/DATA_DICTIONARY.md text eol=lf
+docs/protein_engineering/ANALYSIS_REQUIREMENTS.md text eol=lf
+protein_engineering/resources/phase0/ANALYSIS_REQUIREMENTS.md text eol=lf
+docs/PROTEIN_ENGINEERING_ROADMAP.md text eol=lf
+protein_engineering/resources/phase0/PROTEIN_ENGINEERING_ROADMAP.md text eol=lf

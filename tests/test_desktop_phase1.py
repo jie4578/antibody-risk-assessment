@@ -203,7 +203,7 @@ def test_main_window_headless_navigation():
     from desktop.main_window import MainWindow
     app = QApplication.instance() or QApplication([])
     window = MainWindow()
-    assert window.nav.count() == window.stack.count() == 6
+    assert window.nav.count() == window.stack.count() == 7
     from desktop.widgets.literature import LiteraturePage
     assert isinstance(window.stack.widget(3), LiteraturePage)
     for row in (0, 4, 5): window.nav.setCurrentRow(row); assert window.stack.currentIndex() == row

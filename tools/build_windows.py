@@ -6,6 +6,7 @@ Outputs stay beneath dist; the working tree and index are read only.
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import importlib.metadata as metadata
 import json
@@ -16,9 +17,12 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGES = ("desktop", "ml_inference", "agent", "literature", "rag")
+PACKAGES = ("desktop", "ml_inference", "agent", "literature", "rag", "protein_engineering")
 TOP_LEVEL = ("core.py", "scoring.py", "models.py", "batch_analysis.py", "input_parser.py", "config.py", "LICENSE", "pyproject.toml", "example_antibodies.csv")
 DOCUMENTS = ("docs/INSTALL_WINDOWS.md", "docs/ML_DEPLOYMENT_CHECKLIST.md", "docs/WINDOWS_THIRD_PARTY_AUDIT.md", "docs/WINDOWS_DELIVERY_ACCEPTANCE.md")
+PROTEIN_TABLES = ("enzyme_targets", "protein_variants", "samples", "experiment_batches", "assay_results", "kinetic_timecourse", "ai_predictions", "structure_assets", "source_manifest")
+PROTEIN_RESOURCES = ("FOUNDATION_STATUS.md", "PROTEIN_ENGINEERING_ROADMAP.md", "PHASE0_DATA_INTAKE.md", "DATA_DICTIONARY.md", "ANALYSIS_REQUIREMENTS.md", "PHASE_C1_INITIAL_RATE_IMPLEMENTATION.md", "PHASE0_PACKAGE_PROVENANCE.json",
+                     *("templates/" + name + "_template.csv" for name in PROTEIN_TABLES))
 
 
 def digest(path):
@@ -33,12 +37,24 @@ def snapshot(destination):
     if destination.exists():
         raise ValueError("Use a new build directory; existing builds are never deleted")
     files = [ROOT / name for name in TOP_LEVEL + DOCUMENTS]
-    for package in PACKAGES + ("packaging/windows",):
-        files += [p for p in (ROOT / package).rglob("*") if p.is_file() and p.suffix in {".py", ".spec", ".iss", ".txt", ".json"} and "__pycache__" not in p.parts]
+    for package in PACKAGES:
+        files += [p for p in (ROOT / package).rglob("*.py") if p.is_file() and "__pycache__" not in p.parts]
+    files += [p for p in (ROOT / "packaging/windows").rglob("*") if p.is_file() and p.suffix in {".py", ".spec", ".iss", ".txt", ".json"} and "__pycache__" not in p.parts]
     # The user's preserved CLI edits are unrelated to Desktop delivery. Never
     # embed the dirty literature CLI through the package-wide hidden imports.
     files = [p for p in files if p.relative_to(ROOT).as_posix() != "literature/cli.py"]
     files += list((ROOT / "docs/images/windows").glob("*.png"))
+    if (ROOT / "protein_engineering/__init__.py").is_file():
+        for name in PROTEIN_RESOURCES:
+            source = ROOT / "protein_engineering/resources/phase0" / name
+            documentation = ROOT / "docs" / name if name == "PROTEIN_ENGINEERING_ROADMAP.md" else ROOT / "docs/protein_engineering" / name
+            if source.read_bytes() != documentation.read_bytes():
+                raise ValueError("Protein documentation/resource drift: " + name)
+            if source.suffix == ".csv":
+                with source.open(encoding="utf-8-sig", newline="") as stream:
+                    if len(list(csv.reader(stream))) != 1:
+                        raise ValueError("Only header-only protein templates may be packaged")
+            files += [source, documentation]
     result = {}
     for source in files:
         if source.is_symlink():
@@ -104,10 +120,20 @@ def audit_bundle(directory):
     for path in directory.rglob("*"):
         if not path.is_file(): continue
         rel = path.relative_to(directory)
-        if (path.suffix.lower() in {".joblib", ".npz", ".xlsx", ".db", ".sqlite", ".safetensors"}
+        if (path.suffix.lower() in {".joblib", ".npz", ".xlsx", ".db", ".sqlite", ".sqlite3", ".safetensors"}
+                or path.name.lower().endswith((".sqlite3-journal", ".sqlite3-wal", ".sqlite3-shm"))
                 or path.name in {".env", "settings.json", "model_manifest.json"}
+                or path.name.startswith("protein-private-snapshot")
                 or any(p in {"validation", "torch", "transformers", "gradio", "ml_models"} for p in rel.parts)):
             forbidden.append(rel.as_posix())
+        if path.suffix.lower() == ".csv":
+            allowed = rel.as_posix() == "_internal/examples/example_antibodies.csv"
+            protein_template = rel.as_posix().startswith("_internal/protein_engineering/resources/phase0/templates/") and path.name in {kind + "_template.csv" for kind in PROTEIN_TABLES}
+            if protein_template:
+                with path.open(encoding="utf-8-sig", newline="") as stream:
+                    allowed = len(list(csv.reader(stream))) == 1
+            if not allowed:
+                forbidden.append(rel.as_posix())
     if forbidden:
         raise ValueError("Forbidden files in bundle: " + ", ".join(forbidden))
     return {"forbidden_files": [], "files": sum(p.is_file() for p in directory.rglob("*")), "bytes": sum(p.stat().st_size for p in directory.rglob("*") if p.is_file())}

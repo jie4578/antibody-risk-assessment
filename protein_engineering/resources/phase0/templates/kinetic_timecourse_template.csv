@@ -1,0 +1,1 @@
+observation_id,batch_id,sample_id,well_id,biological_replicate,technical_replicate,substrate_concentration,substrate_concentration_unit,time_value,time_unit,raw_signal,signal_unit,blank_signal,corrected_signal,product_concentration,product_concentration_unit,source_file_id,source_sheet,source_row,notes

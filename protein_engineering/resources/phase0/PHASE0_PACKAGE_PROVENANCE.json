@@ -1,0 +1,86 @@
+{
+  "archive_name": "protein-engineering-phase0-update.zip",
+  "archive_sha256": "6961ecc4a0848280741d7b712ac8a1ac28a4a280f82bce61b083c4bcd4b3a279",
+  "integration_date": "2026-11-09",
+  "note": "User-provided documentation/templates only; apply script and bytecode were not run or copied. Original Phase 0 status retained as source history; see FOUNDATION_STATUS.md for implemented scope.",
+  "files": [
+    {
+      "archive_member": "protein-engineering-phase0-update/overlay/docs/protein_engineering/PHASE0_DATA_INTAKE.md",
+      "local_path": "docs/protein_engineering/PHASE0_DATA_INTAKE.md",
+      "runtime_path": "protein_engineering/resources/phase0/PHASE0_DATA_INTAKE.md",
+      "sha256": "b0bbfdc0919aa2f8421a9ec01feb34499a3ce014003ef3332ac890d98682ae2a"
+    },
+    {
+      "archive_member": "protein-engineering-phase0-update/overlay/docs/protein_engineering/templates/assay_results_template.csv",
+      "local_path": "docs/protein_engineering/templates/assay_results_template.csv",
+      "runtime_path": "protein_engineering/resources/phase0/templates/assay_results_template.csv",
+      "sha256": "3a2e7292603384e43db13db100d460bf6ed91cf79d34c62e0639b42cd4b89254"
+    },
+    {
+      "archive_member": "protein-engineering-phase0-update/overlay/docs/protein_engineering/templates/samples_template.csv",
+      "local_path": "docs/protein_engineering/templates/samples_template.csv",
+      "runtime_path": "protein_engineering/resources/phase0/templates/samples_template.csv",
+      "sha256": "c75b4320dc5665d857919616a6ea40f2ea3f27ef7730bee98f2402cd8b696f16"
+    },
+    {
+      "archive_member": "protein-engineering-phase0-update/overlay/docs/protein_engineering/templates/experiment_batches_template.csv",
+      "local_path": "docs/protein_engineering/templates/experiment_batches_template.csv",
+      "runtime_path": "protein_engineering/resources/phase0/templates/experiment_batches_template.csv",
+      "sha256": "a2e3d70b84c869f84820a48874252b34455a1b4f3dd9665681548b65b1f1ef46"
+    },
+    {
+      "archive_member": "protein-engineering-phase0-update/overlay/docs/protein_engineering/templates/protein_variants_template.csv",
+      "local_path": "docs/protein_engineering/templates/protein_variants_template.csv",
+      "runtime_path": "protein_engineering/resources/phase0/templates/protein_variants_template.csv",
+      "sha256": "8b5a61519343c1b93c5a8f993fb8bfd6e2debd1eab2194a58de2c244aa327822"
+    },
+    {
+      "archive_member": "protein-engineering-phase0-update/overlay/docs/protein_engineering/templates/source_manifest_template.csv",
+      "local_path": "docs/protein_engineering/templates/source_manifest_template.csv",
+      "runtime_path": "protein_engineering/resources/phase0/templates/source_manifest_template.csv",
+      "sha256": "142302aae173ff93302fd6c1acf874999f66034b12c9054c875816e42ae47f45"
+    },
+    {
+      "archive_member": "protein-engineering-phase0-update/overlay/docs/protein_engineering/templates/kinetic_timecourse_template.csv",
+      "local_path": "docs/protein_engineering/templates/kinetic_timecourse_template.csv",
+      "runtime_path": "protein_engineering/resources/phase0/templates/kinetic_timecourse_template.csv",
+      "sha256": "a5233688f5176894198c4dc4484380db833429026c35e458379160627b4196ae"
+    },
+    {
+      "archive_member": "protein-engineering-phase0-update/overlay/docs/protein_engineering/templates/structure_assets_template.csv",
+      "local_path": "docs/protein_engineering/templates/structure_assets_template.csv",
+      "runtime_path": "protein_engineering/resources/phase0/templates/structure_assets_template.csv",
+      "sha256": "096c3fb70869a6197f5a4569b8699553236f7f5807d50b8d68688262ae2b5085"
+    },
+    {
+      "archive_member": "protein-engineering-phase0-update/overlay/docs/protein_engineering/templates/enzyme_targets_template.csv",
+      "local_path": "docs/protein_engineering/templates/enzyme_targets_template.csv",
+      "runtime_path": "protein_engineering/resources/phase0/templates/enzyme_targets_template.csv",
+      "sha256": "167851e5dec725926a8166c05179cd437237656a37343c19837c04d0d459753f"
+    },
+    {
+      "archive_member": "protein-engineering-phase0-update/overlay/docs/protein_engineering/templates/ai_predictions_template.csv",
+      "local_path": "docs/protein_engineering/templates/ai_predictions_template.csv",
+      "runtime_path": "protein_engineering/resources/phase0/templates/ai_predictions_template.csv",
+      "sha256": "673ad4d316767f991ab3ad27a267cd00be7f2196ea3a5b60645a0c4a6281e988"
+    },
+    {
+      "archive_member": "protein-engineering-phase0-update/overlay/docs/protein_engineering/DATA_DICTIONARY.md",
+      "local_path": "docs/protein_engineering/DATA_DICTIONARY.md",
+      "runtime_path": "protein_engineering/resources/phase0/DATA_DICTIONARY.md",
+      "sha256": "00cd6a04d143c68d20d0b292f53d0104afa19e70767b16fa519acb233deebf74"
+    },
+    {
+      "archive_member": "protein-engineering-phase0-update/overlay/docs/protein_engineering/ANALYSIS_REQUIREMENTS.md",
+      "local_path": "docs/protein_engineering/ANALYSIS_REQUIREMENTS.md",
+      "runtime_path": "protein_engineering/resources/phase0/ANALYSIS_REQUIREMENTS.md",
+      "sha256": "fee2880a766154225f4ef9c63a02f1d3662588147775b0ce21c68571caa10668"
+    },
+    {
+      "archive_member": "protein-engineering-phase0-update/overlay/docs/PROTEIN_ENGINEERING_ROADMAP.md",
+      "local_path": "docs/PROTEIN_ENGINEERING_ROADMAP.md",
+      "runtime_path": "protein_engineering/resources/phase0/PROTEIN_ENGINEERING_ROADMAP.md",
+      "sha256": "3125342ab4917b7f7827d744424b7564d9ed66d44c229ba2729a8181e91d23fd"
+    }
+  ]
+}

@@ -10,6 +10,16 @@
 见 [Windows 指南](docs/INSTALL_WINDOWS.md) 和
 [交付状态](docs/RELEASE_DELIVERY_2026-11-07.md)。
 
+## 蛋白质工程独立模块（2026-11-09）
+
+同一 Desktop 追加蛋白质工程入口。Phase A 文档/空模板已整合；Phase B 本地
+SQLite 建档、CSV/XLSX 校验导入与原件 SHA256 溯源基础已实现。真实数据确认仍在
+Phase 0；原 Phase 1 仅部分实现。B.1 数据审计与 C.1 显式区间初始速率基础已实现；
+Michaelis–Menten、WT 统计比较、AI 实验评价、结构分析与 DBTL 尚未实现。
+不把抗体分数或抗体 HIC 模型用于酶，不训练模型，不改变冻结实验结果。
+详见[当前交付范围](docs/protein_engineering/FOUNDATION_STATUS.md)及
+[原六阶段规划](docs/PROTEIN_ENGINEERING_ROADMAP.md)。本轮不发布或推送。
+
 以下为历史演进计划与当时观察，旧测试数、Gradio 定位和研发目标不是当前发布声明。
 
 > 现有项目:`antibody_risk`(基于规则的抗体可变区化学稳定性风险分析工具)

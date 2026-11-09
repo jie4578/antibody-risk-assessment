@@ -1,0 +1,1 @@
+prediction_id,design_id,variant_id,predicted_metric,predicted_value,predicted_unit,prediction_type,prediction_direction,rank_within_design,uncertainty_value,uncertainty_type,model_name,model_version,method_name,method_version,run_timestamp_utc,input_sequence_sha256,raw_output_file,source_file_id,source_record_id,notes

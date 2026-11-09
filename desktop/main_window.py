@@ -13,6 +13,7 @@ from desktop.widgets.settings_page import SettingsPage
 from desktop.widgets.single_analysis import SingleAnalysisPage
 from desktop.widgets.mutation import MutationPage
 from desktop.widgets.literature import LiteraturePage
+from desktop.widgets.protein_engineering import ProteinEngineeringPage
 
 
 class MainWindow(QMainWindow):
@@ -24,6 +25,10 @@ class MainWindow(QMainWindow):
         self.nav = QListWidget(); self.nav.addItems(["单条分析", "批量分析", "突变", "文献", "AI 助手", "设置"]); self.stack = QStackedWidget(); self.single = SingleAnalysisPage(open_mutation=self._open_mutation, open_literature=self._open_literature, research_state_getter=self._research_state_for_single, config_getter=lambda: self._config); self.mutation = MutationPage(open_literature=self._open_literature, on_state_changed=self.single.notify_external_evidence_changed); self.stack.addWidget(self.single); self.stack.addWidget(BatchAnalysisPage(open_single=self._open_single, open_mutation=self._open_mutation)); self.stack.addWidget(self.mutation)
         self.literature = LiteraturePage(); self.literature.set_open_ai(self._open_ai_evidence); self.literature.set_summary_changed_callback(self.single.notify_external_evidence_changed); self.stack.addWidget(self.literature)
         self.settings = SettingsPage(); self._config = self.settings.config(); self.ai = AIAssistantPage(lambda: self._config); self.stack.addWidget(self.ai); self.stack.addWidget(self.settings); self.settings.config_applied.connect(self._set_config); self.settings.config_applied.connect(self.single.notify_config_changed); self.nav.currentRowChanged.connect(self.stack.setCurrentIndex); self.nav.setCurrentRow(0)
+        self.protein_engineering = ProteinEngineeringPage()
+        self.stack.addWidget(self.protein_engineering)
+        self.nav.addItem("蛋白质工程")
+        self.setWindowTitle("抗体与蛋白质工程科研工作台")
         self.nav.setFixedWidth(136)
         from desktop.version import project_version
         self.setWindowTitle(self.windowTitle() + " — " + project_version() + " 候选版")
