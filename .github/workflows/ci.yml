@@ -4,19 +4,49 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      run_training_tests:
+        description: 'Explicitly allow historical synthetic ML/TF-IDF fitting tests'
+        type: boolean
+        default: false
+      run_live_tests:
+        description: 'Explicitly allow live literature/Provider tests (may spend API credit)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  QT_QPA_PLATFORM: offscreen
+  DEEPSEEK_API_KEY: sk-ci-dummy
+  GRADIO_ANALYTICS_ENABLED: 'False'
+  HF_HUB_OFFLINE: '1'
+  TRANSFORMERS_OFFLINE: '1'
+  # Audited call chain: Agent/Orchestrator -> tool_rag_search -> index -> TF-IDF fit.
+  # These nodes are retained in TRAINING_OPT_IN, not silently rewritten or skipped.
+  TRAINING_NODES: >-
+    tests/test_agent.py::test_tool_rag_search_returns_context
+    tests/test_agent.py::test_agent_knowledge_question
+    tests/test_agent.py::test_agent_scan_question
+    tests/test_agent.py::test_agent_shares_memory
+    tests/test_agent.py::test_langchain_adapter_tool_invoke_when_present
+    tests/test_agent.py::test_orchestrator_run_aggregates
+    tests/test_agent.py::test_react_multistep_executes_tools_in_order
+    tests/test_agent_facts.py::test_run_collect_no_report
+    tests/test_agent_facts.py::test_orchestrator_facts_only_and_no_template
+    tests/test_agent_prompt.py::test_agent_with_mock_still_runs
 
 jobs:
   test:
+    # Keep existing check names for branch-protection compatibility.
     name: pytest (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
-    env:
-      # 无真实 key 时 DeepSeekLLM 构造需要非空 key(测试内 mock 客户端,不联网)
-      DEEPSEEK_API_KEY: sk-ci-dummy
-      QT_QPA_PLATFORM: offscreen
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ['3.10', '3.11', '3.12']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -30,31 +60,158 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install ".[desktop,dev]"
-      - name: Run tests
-        run: python -m pytest -q
+      - name: Safe application, Desktop and installed-wheel tests
+        shell: python
+        env:
+          SAFE_CI_SCOPE: application
+        run: &safe_ci_runner |
+          import os
+          from pathlib import Path
+          import shlex
+          import socket
+          import sys
+          import tempfile
+          import pytest
+          from sklearn.base import BaseEstimator
+          from rag.embeddings import TfidfEmbedder
+          import config
+
+          # Do not read a maintainer's .env or Desktop profile during local replay.
+          config._DOTENV_PATHS = []
+          config._loaded = False
+          os.environ['DEEPSEEK_API_KEY'] = 'OFFLINE-SYNTHETIC-NOT-A-CREDENTIAL'
+          profile = Path(tempfile.mkdtemp(prefix='safe-ci-', dir=os.environ.get('RUNNER_TEMP')))
+          os.environ['APPDATA'] = str(profile / 'roaming')
+          os.environ['LOCALAPPDATA'] = str(profile / 'local')
+          root = Path.cwd().resolve()
+          violations = []
+
+          class UnsafeCI(BaseException):
+              pass
+
+          def blocked(reason):
+              violations.append(reason)
+              raise UnsafeCI('SAFE_CI boundary: ' + reason)
+
+          def no_fit(*args, **kwargs):
+              blocked('estimator / TF-IDF fitting is opt-in')
+
+          # This intercepts the audited hidden TF-IDF path before fitting any data.
+          TfidfEmbedder.fit = no_fit
+          original_attribute = BaseEstimator.__getattribute__
+          def estimator_attribute(self, name):
+              value = original_attribute(self, name)
+              return no_fit if name in {'fit', 'fit_transform', 'partial_fit'} and callable(value) else value
+          BaseEstimator.__getattribute__ = estimator_attribute
+
+          original_connect = socket.socket.connect
+          original_connect_ex = socket.socket.connect_ex
+          original_dns = socket.getaddrinfo
+          loopback = {'127.0.0.1', '::1', 'localhost'}
+          def check_address(address):
+              if isinstance(address, tuple) and str(address[0]).lower() not in loopback:
+                  blocked('external network connection')
+          def connect(sock, address):
+              check_address(address)
+              return original_connect(sock, address)
+          def connect_ex(sock, address):
+              check_address(address)
+              return original_connect_ex(sock, address)
+          def dns(host, *args, **kwargs):
+              if host is not None and str(host).lower() not in loopback:
+                  blocked('external DNS lookup')
+              return original_dns(host, *args, **kwargs)
+          socket.socket.connect = connect
+          socket.socket.connect_ex = connect_ex
+          socket.getaddrinfo = dns
+
+          # Only repo data/artifact roots are blocked; tmp_path synthetic files are allowed.
+          data_roots = [root / p for p in (
+              'validation/data', 'validation/external_developability/raw',
+              'validation/external_family_validation/raw', 'artifacts/ml_models', 'ml/artifacts')]
+          def audit(event, args):
+              if event == 'open' and isinstance(args[0], (str, bytes, os.PathLike)):
+                  path = Path(os.fsdecode(args[0])).resolve()
+                  if any(path == p or p in path.parents for p in data_roots):
+                      blocked('real dataset/model artifact access')
+          sys.addaudithook(audit)
+
+          training_nodes = shlex.split(os.environ['TRAINING_NODES'])
+          integrity = [
+              'validation/tests/test_audit_compatibility.py',
+              'validation/tests/test_runtime_embedding_parity.py',
+              'validation/tests/test_phase8_documentation.py',
+              'validation/external_developability/tests/test_phase8c_hic_external_evaluation.py',
+              'validation/tests/test_ml_inference_runtime.py::test_builder_does_not_reference_or_load_sealed_test_labels',
+              'validation/tests/test_ml_inference_runtime.py::test_no_external_provider_and_cpu_fallback_in_runtime_source',
+              'validation/tests/test_ml_inference_runtime.py::test_core_and_scoring_are_not_modified',
+          ]
+          scope = os.environ['SAFE_CI_SCOPE']
+          if scope == 'application':
+              targets = ['tests', '--ignore=tests/test_ml.py', '--ignore=tests/test_rag.py']
+              targets += ['--deselect=' + n for n in training_nodes]
+          elif scope == 'integrity':
+              targets = integrity
+          elif scope == 'optional-compatibility':
+              # Untrained tiny Transformer construction/forward only; no optimizer/backward.
+              targets = ['tests/test_ml.py::test_transformer_build_when_torch_present']
+          else:
+              raise SystemExit('Unknown reviewed SAFE_CI_SCOPE')
+
+          class CollectionBoundary:
+              @pytest.hookimpl(trylast=True)
+              def pytest_collection_modifyitems(self, items):
+                  ids = {item.nodeid for item in items}
+                  if any(item.get_closest_marker('live') for item in items):
+                      blocked('live test entered SAFE_CI selection')
+                  if ids.intersection(training_nodes):
+                      blocked('training node entered SAFE_CI selection')
+                  if scope == 'application':
+                      required = {
+                          'tests/test_protein_engineering.py', 'tests/test_protein_rate_storage.py',
+                          'tests/test_protein_initial_rate.py', 'tests/test_desktop_protein_engineering.py',
+                          'tests/test_desktop_protein_initial_rate.py', 'tests/test_installed_package.py'}
+                      if not required.issubset({n.split('::')[0] for n in ids}):
+                          blocked('Protein Engineering / wheel coverage missing')
+
+          args = ['-o', 'addopts=', '-m', 'not live', *targets, '-q', '-ra']
+          if os.environ.get('SAFE_CI_COLLECT_ONLY') == '1':
+              args.append('--collect-only')
+          print('SAFE_CI:', scope, shlex.join(args))
+          code = pytest.main(args, plugins=[CollectionBoundary()])
+          print('SAFE_CI boundary violations:', len(violations))
+          if violations:
+              print('SAFE_CI violations:', sorted(set(violations)))
+              code = 1
+          raise SystemExit(code)
 
   test-optional:
     name: "pytest (optional deps: torch + langchain)"
     runs-on: ubuntu-latest
-    env:
-      DEEPSEEK_API_KEY: sk-ci-dummy
-      QT_QPA_PLATFORM: offscreen
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: '3.12'
       - name: Install Qt Linux runtime libraries
         run: |
           sudo apt-get update
           sudo apt-get install -y libegl1 libgl1 libopengl0
-      - name: Install CPU torch (小体积) + all extras
+      - name: Install CPU torch + all extras
         run: |
           python -m pip install --upgrade pip
           pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install ".[all,dev]"
-      - name: Run tests (含可选模块)
-        run: python -m pytest -q
+      - name: Safe application and optional adapter contracts
+        shell: python
+        env:
+          SAFE_CI_SCOPE: application
+        run: *safe_ci_runner
+      - name: Optional untrained Transformer compatibility
+        shell: python
+        env:
+          SAFE_CI_SCOPE: optional-compatibility
+        run: *safe_ci_runner
 
   desktop-integrity:
     name: Desktop, wheel and offline validation (${{ matrix.os }})
@@ -63,30 +220,83 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-    env:
-      QT_QPA_PLATFORM: offscreen
-      DEEPSEEK_API_KEY: sk-ci-dummy
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: '3.12'
       - name: Install Qt Linux runtime libraries
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libegl1 libgl1 libopengl0
       - name: Install Desktop and test dependencies
-        # Frozen sequence utilities imported by the offline parity test use Bio.Align.
         run: python -m pip install ".[desktop,dev]" biopython
-      - name: Application and installed-wheel smoke tests
-        run: python -m pytest -q
-      - name: Offline validation integrity (no private data bundle required)
-        run: >-
-          python -m pytest -q
-          validation/tests/test_audit_compatibility.py
-          validation/tests/test_runtime_embedding_parity.py
-          validation/tests/test_phase8_documentation.py
-          validation/external_developability/tests/test_phase8c_hic_external_evaluation.py
+      - name: Safe application and installed-wheel tests
+        shell: python
+        env:
+          SAFE_CI_SCOPE: application
+        run: *safe_ci_runner
+      - name: Synthetic and read-only frozen integrity allowlist
+        shell: python
+        env:
+          SAFE_CI_SCOPE: integrity
+        run: *safe_ci_runner
+
+  training-opt-in:
+    name: TRAINING_OPT_IN synthetic ML and TF-IDF
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_training_tests == true }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Qt Linux runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libopengl0
+      - name: Install synthetic training test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install ".[all,dev]"
+      - name: Explicit historical synthetic fitting tests (no artifact upload)
+        shell: python
+        run: |
+          import os, shlex, pytest
+          targets = ['tests/test_ml.py', 'tests/test_rag.py', *shlex.split(os.environ['TRAINING_NODES'])]
+          targets += ['validation/tests/test_phase5c_benchmark.py::test_standard_scaler_can_only_be_fitted_on_supplied_train_rows']
+          raise SystemExit(pytest.main(['-o', 'addopts=', '-m', 'not live', *targets, '-q', '-ra']))
+
+  live-opt-in:
+    name: LIVE_OPT_IN literature and configured Provider
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_live_tests == true }}
+    runs-on: ubuntu-latest
+    env:
+      # Dedicated opt-in test secret only; never used by any SAFE_CI job.
+      DEEPSEEK_API_KEY: ${{ secrets.CI_LIVE_DEEPSEEK_API_KEY }}
+      ANTIBODY_RUN_LIVE_ACCEPTANCE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Qt Linux runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libopengl0
+      - name: Install live test dependencies
+        run: python -m pip install ".[desktop,dev]"
+      - name: Explicit synthetic-only live tests
+        shell: python
+        run: |
+          import pytest
+          from desktop.settings import DEFAULTS, RuntimeLLMConfig, save_settings
+          base, model = DEFAULTS['deepseek']
+          save_settings(RuntimeLLMConfig(provider='deepseek', base_url=base, model=model))
+          # Missing dedicated secret / unavailable Ollama are reported as SKIPPED.
+          raise SystemExit(pytest.main(['-o', 'addopts=', '-m', 'live', 'tests/test_literature/test_live.py',
+              'tests/test_desktop_acceptance_live.py', 'tests/test_agent.py::test_local_ollama_completion_live', '-q', '-ra']))
