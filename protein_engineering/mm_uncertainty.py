@@ -184,6 +184,50 @@ def _utc(stamp):
     return datetime.fromisoformat(stamp.replace("Z", "+00:00")).utcoffset() == timedelta(0)
 
 
+def _confidence_cutoff_resolution(critical, n, baseline):
+    """Qualify the existing LR criterion, without changing SSE or tolerances.
+
+    A positive chi-square quantile need not distinguish an SSE ratio from one.
+    The declared domain-limit tolerance must distinguish the cutoff from zero,
+    and the effective root tolerance must resolve an actual SSE floating step.
+    Passing this necessary check does not guarantee successful profile roots.
+    """
+    detail = {"status":"UNRESOLVABLE", "critical_value":critical if math.isfinite(critical) else None,
+        "n":n, "scaled_sse_min":baseline, "limit_lr_tolerance":POLICY["limit_lr_tolerance"],
+        "absolute_root_lr_tolerance":POLICY["root_lr_tolerance"],
+        "checks":{"positive_finite_critical":math.isfinite(critical) and critical > 0}}
+    if not detail["checks"]["positive_finite_critical"]:
+        return detail
+    if not math.isfinite(baseline) or baseline <= 0 or n <= 0:
+        raise ProfileNumericalError("Positive finite SSE and observation count required for cutoff qualification")
+    try:
+        exponent = critical / n
+        ratio = math.exp(exponent)
+        increment = math.expm1(exponent)
+        sse_cutoff = baseline * ratio
+        root_tolerance = min(POLICY["root_lr_tolerance"], critical * 1e-6)
+        # ULPs at both ends of the requested SSE step, expressed in LR units.
+        ulp_lr = max(n * math.log1p(math.ulp(s) / s) for s in (baseline, sse_cutoff))
+    except (ValueError, OverflowError, ZeroDivisionError):
+        detail["checks"]["finite_cutoff_calculation"] = False
+        return detail
+    values = {"critical_per_n":exponent, "relative_sse_increment":increment,
+        "sse_ratio_cutoff":ratio, "scaled_sse_cutoff":sse_cutoff,
+        "effective_root_lr_tolerance":root_tolerance, "sse_ulp_lr_resolution":ulp_lr}
+    finite = all(math.isfinite(v) for v in values.values())
+    # Invalid diagnostics are quarantined only in this explicitly failed check.
+    detail.update({k:v if math.isfinite(v) else None for k,v in values.items()})
+    detail["checks"].update(finite_cutoff_calculation=finite,
+        sse_ratio_above_one=math.isfinite(ratio) and ratio > 1.0,
+        sse_cutoff_above_minimum=math.isfinite(sse_cutoff) and sse_cutoff > baseline,
+        limit_lr_separates_zero=critical > POLICY["limit_lr_tolerance"],
+        root_acceptance_separates_zero=0 < root_tolerance < critical,
+        root_lr_tolerance_resolves_sse_ulp=math.isfinite(ulp_lr) and root_tolerance >= ulp_lr)
+    if all(detail["checks"].values()):
+        detail["status"] = "RESOLVED"
+    return detail
+
+
 class _Profile:
     def __init__(self, x, y, baseline, n, parameter, estimate, optimize):
         import numpy as np
@@ -398,16 +442,23 @@ def analyze_mm_uncertainty(records, fit_review, c2a_result, review, *, confidenc
             y = np.asarray([r["observed_rate"] / rate_scale for r in points])
             baseline = math.fsum(((r["observed_rate"] - r["fitted_rate"]) / rate_scale)**2 for r in points)
             critical = float(chi2.ppf(confidence_level, 1))
-            if not math.isfinite(critical) or critical <= 0:
-                raise ProfileNumericalError("Confidence cutoff is below finite positive numerical resolution")
             result["metadata"].update(dependencies={"numpy":np.__version__,"scipy":scipy.__version__},
                 scales={"rate":rate_scale,"substrate":substrate_scale})
-            result["statistical_model"].update(lr_definition="N*log(SSE_profile/SSE_min)",
-                critical_distribution="ASYMPTOTIC_CHI_SQUARE_1", critical_value=critical,
-                sse_ratio_cutoff=math.exp(critical/n), scaled_sse_min=baseline)
-            if baseline / n <= POLICY["normalized_variance_floor"]:
-                fail("VARIANCE_DEGENERATE", "Zero/near-zero residual variance: no point interval and no invented noise floor", stage="VARIANCE_ESTIMATION")
-                for r in result["parameters"].values():r["reasons"] = deepcopy(result["reasons"])
+            if math.isfinite(critical) and critical > 0:
+                result["statistical_model"].update(lr_definition="N*log(SSE_profile/SSE_min)",
+                    critical_distribution="ASYMPTOTIC_CHI_SQUARE_1", critical_value=critical,
+                    sse_ratio_cutoff=math.exp(critical/n), scaled_sse_min=baseline)
+                if baseline / n <= POLICY["normalized_variance_floor"]:
+                    fail("VARIANCE_DEGENERATE", "Zero/near-zero residual variance: no point interval and no invented noise floor", stage="VARIANCE_ESTIMATION")
+                    for r in result["parameters"].values():r["reasons"] = deepcopy(result["reasons"])
+                    return finish()
+            resolution = _confidence_cutoff_resolution(critical, n, baseline)
+            if resolution["status"] != "RESOLVED":
+                result["metadata"]["confidence_cutoff_resolution"] = resolution
+                fail("CONFIDENCE_CUTOFF_UNRESOLVABLE", "Requested LR cutoff is not distinguishable under the floating-point representation and existing numerical tolerances",
+                    status="NUMERICAL_FAILURE", stage="CONFIDENCE_CUTOFF_QUALIFICATION")
+                for r in result["parameters"].values():
+                    r.update(status="NUMERICAL_FAILURE", lower=None, upper=None, reasons=deepcopy(result["reasons"]))
                 return finish()
             if n < POLICY["small_sample_n"]:
                 result["quality_control"].append({"code":"SMALL_SAMPLE_APPROXIMATION","message":"Nonlinear Wilks intervals may have poor finite-sample coverage"})

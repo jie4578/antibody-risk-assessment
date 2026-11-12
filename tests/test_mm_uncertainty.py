@@ -447,3 +447,122 @@ def test_final_interval_contract_rejects_missing_finite_bound():
     assert result["parameters"]["Km"]["upper"] is None
     assert result["reasons"][0]["code"]=="INTERVAL_RESULT_CONTRACT"
     assert_finite_strict_json(result)
+
+
+@pytest.mark.parametrize("level",[1e-300,1e-20,1e-10,1e-5])
+def test_unresolvable_cutoff_is_rejected_before_any_profile_search(monkeypatch,level):
+    from protein_engineering import mm_uncertainty as uncertainty
+    records=noisy();fr,fit,review=prepare(records)
+    original=deepcopy((records,fr,fit,review))
+    def forbidden(*args,**kwargs):
+        pytest.fail("Unresolvable cutoff entered a parameter profile")
+    monkeypatch.setattr(uncertainty,"_Profile",forbidden)
+    result=analyze_mm_uncertainty(records,fr,fit,review,confidence_level=level)
+    assert result["status"]=="NUMERICAL_FAILURE"
+    assert result["metadata"]["failure_stage"]=="CONFIDENCE_CUTOFF_QUALIFICATION"
+    assert result["reasons"][0]["code"]=="CONFIDENCE_CUTOFF_UNRESOLVABLE"
+    assert result["metadata"]["input_sha256"]==input_digest(records)
+    assert result["metadata"]["c2a_result_sha256"]==fit["metadata"]["result_sha256"]
+    detail=result["metadata"]["confidence_cutoff_resolution"]
+    assert detail["status"]=="UNRESOLVABLE"
+    assert detail["checks"] and not all(detail["checks"].values())
+    for p in result["parameters"].values():
+        assert p["status"]=="NUMERICAL_FAILURE"
+        assert p["lower"] is None and p["upper"] is None and p["profile"]==[]
+        assert p["point_estimate"]==fit["parameters"]["Km" if p["unit"]=="uM" else "Vmax"]
+        assert p["reasons"][0]["code"]=="CONFIDENCE_CUTOFF_UNRESOLVABLE"
+    assert (records,fr,fit,review)==original
+    assert_finite_strict_json(result)
+
+
+@pytest.mark.parametrize("level",[1e-20,1e-10])
+def test_positive_chi_square_cutoff_can_still_round_sse_ratio_to_one(level):
+    from scipy.stats import chi2
+    from protein_engineering.mm_uncertainty import _confidence_cutoff_resolution
+    critical=float(chi2.ppf(level,1))
+    assert critical>0 and math.expm1(critical/7)>0
+    assert math.exp(critical/7)==1.0
+    detail=_confidence_cutoff_resolution(critical,7,0.001)
+    assert detail["status"]=="UNRESOLVABLE"
+    assert detail["checks"]["sse_ratio_above_one"] is False
+    assert detail["sse_ratio_cutoff"]==1.0
+    assert detail["relative_sse_increment"]==math.expm1(critical/7)
+    assert_finite_strict_json(detail)
+
+
+def test_representable_ratio_below_absolute_limit_lr_tolerance_is_not_sufficient():
+    from protein_engineering.mm_uncertainty import POLICY,_confidence_cutoff_resolution
+    critical=1e-9
+    assert math.exp(critical/7)>1.0
+    detail=_confidence_cutoff_resolution(critical,7,0.001)
+    assert detail["status"]=="UNRESOLVABLE"
+    assert detail["checks"]["sse_ratio_above_one"] is True
+    assert detail["checks"]["limit_lr_separates_zero"] is False
+    assert detail["limit_lr_tolerance"]==POLICY["limit_lr_tolerance"]==1e-8
+
+
+def test_cutoff_qualification_uses_effective_root_tolerance_and_actual_sse_ulp():
+    from protein_engineering.mm_uncertainty import POLICY,_confidence_cutoff_resolution
+    critical=1e-5;baseline=0.001;n=7
+    detail=_confidence_cutoff_resolution(critical,n,baseline)
+    assert detail["status"]=="RESOLVED"
+    assert detail["effective_root_lr_tolerance"]==min(POLICY["root_lr_tolerance"],critical*1e-6)
+    cutoff=baseline*math.exp(critical/n)
+    expected=max(n*math.log1p(math.ulp(s)/s) for s in (baseline,cutoff))
+    assert detail["sse_ulp_lr_resolution"]==expected
+    assert all(detail["checks"].values())
+    assert_finite_strict_json(detail)
+
+
+def test_root_tolerance_smaller_than_one_sse_ulp_cannot_certify_a_cutoff(monkeypatch):
+    from protein_engineering.mm_uncertainty import POLICY,_confidence_cutoff_resolution
+    # Tightening a numerical tolerance in a test must not manufacture precision.
+    monkeypatch.setitem(POLICY,"root_lr_tolerance",1e-30)
+    detail=_confidence_cutoff_resolution(3.841458820694124,7,0.001)
+    assert detail["checks"]["sse_ratio_above_one"] is True
+    assert detail["checks"]["root_lr_tolerance_resolves_sse_ulp"] is False
+    assert detail["status"]=="UNRESOLVABLE"
+
+
+@pytest.mark.parametrize("level",[.01,.95])
+def test_resolvable_small_and_default_levels_keep_true_finite_intervals(level):
+    from protein_engineering.mm_uncertainty import _confidence_cutoff_resolution
+    result=analyze(noisy(),confidence_level=level)
+    assert result["status"]=="INTERVAL_ESTIMATED"
+    model=result["statistical_model"]
+    assert _confidence_cutoff_resolution(model["critical_value"],7,model["scaled_sse_min"])["status"]=="RESOLVED"
+    for p in result["parameters"].values():
+        assert 0<p["lower"]<p["point_estimate"]<p["upper"]
+        for side in ("lower_endpoint","upper_endpoint"):
+            assert p["diagnostics"][side]["status"]=="FINITE_ROOT"
+    assert_finite_strict_json(result)
+
+
+def test_resolved_cutoff_preserves_genuine_weak_identifiability():
+    records=records_for((1,2,3,4,5,6,8),noise=(.002,-.006,.004,-.008,.012,-.004,.006))
+    result=analyze(records)
+    assert result["status"]=="WEAKLY_IDENTIFIABLE"
+    assert not any(r["code"]=="CONFIDENCE_CUTOFF_UNRESOLVABLE" for r in result["reasons"])
+    assert_finite_strict_json(result)
+
+
+def test_resolved_cutoff_keeps_real_open_domain_separate_from_numerical_failure():
+    result=analyze(unbounded_fixture())
+    assert result["status"]=="NOT_IDENTIFIABLE"
+    assert all(p["upper"] is None and p["diagnostics"]["upper_endpoint"]["status"]=="OPEN_DOMAIN_LIMIT"
+        for p in result["parameters"].values())
+    assert not any(r["code"]=="CONFIDENCE_CUTOFF_UNRESOLVABLE" for r in result["reasons"])
+    assert_finite_strict_json(result)
+
+
+@pytest.mark.parametrize("critical",[0.0,float("nan"),float("inf")])
+def test_invalid_chi_square_numeric_output_has_the_same_safe_cutoff_failure(monkeypatch,critical):
+    from scipy.stats import chi2
+    monkeypatch.setattr(chi2,"ppf",lambda *args,**kwargs:critical)
+    result=analyze(noisy())
+    assert result["status"]=="NUMERICAL_FAILURE"
+    assert result["reasons"][0]["code"]=="CONFIDENCE_CUTOFF_UNRESOLVABLE"
+    assert result["metadata"]["confidence_cutoff_resolution"]["checks"]["positive_finite_critical"] is False
+    assert all(p["status"]=="NUMERICAL_FAILURE" and p["lower"] is None and p["upper"] is None
+        for p in result["parameters"].values())
+    assert_finite_strict_json(result)
