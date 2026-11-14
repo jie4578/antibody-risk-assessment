@@ -37,9 +37,10 @@ def test_seventh_entry_keeps_antibody_navigation_and_no_startup_database(qt_appl
     assert window.stack.currentWidget() is window.protein_engineering
     page = window.protein_engineering
     assert page.store is None and not Path(page.database_path.text()).exists()
-    assert page.tabs.count() == 7
+    assert page.tabs.count() == 8
     assert "C.1" in page.tabs.tabText(3)
-    assert all("规划中" in page.tabs.tabText(i) for i in range(4, 7))
+    assert "C.2A" in page.tabs.tabText(4)
+    assert all("规划中" in page.tabs.tabText(i) for i in range(5, 8))
     assert page.import_button.isEnabled() is False
     for row in range(6):
         window.nav.setCurrentRow(row)
@@ -116,7 +117,8 @@ def test_tabs_do_not_leave_record_browser_below_empty_form_space(qt_application)
     intake_height = page.tabs.height()
     page.tabs.setCurrentIndex(1); qt_application.processEvents()
     assert page.tabs.height() > intake_height
-    page.tabs.setCurrentIndex(4); qt_application.processEvents()
+    page.tabs.setCurrentIndex(5); qt_application.processEvents()
+    assert "规划中" in page.tabs.tabText(5)
     assert page.tabs.height() < intake_height
     page.close(); page.deleteLater()
 

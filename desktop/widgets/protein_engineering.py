@@ -2,21 +2,26 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from pathlib import Path
 import tempfile
+from uuid import uuid4
 
-from PySide6.QtCore import QThreadPool, Qt, QUrl, Slot
+from PySide6.QtCore import QThread,QThreadPool, Qt, QUrl, Slot
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (QComboBox, QDialog, QFileDialog, QFormLayout, QGroupBox,
     QHBoxLayout, QLabel, QLineEdit, QPlainTextEdit, QPushButton, QTableWidget,
     QTableWidgetItem, QTabWidget, QVBoxLayout, QWidget)
 
-from desktop.workers import Worker
+from desktop.protein_operations import OperationWorker
+from desktop.workers import sanitize_error
 from protein_engineering.importer import preview_file, sheet_names
 from protein_engineering.resources import DOCUMENTS, TABLE_LABELS, document_text, save_template
 from protein_engineering.schema import SPECS
 from protein_engineering.storage import ProteinStore, default_database_path
+from protein_engineering.storage import ProteinStore as _ProteinStoreType
 from .protein_initial_rate import InitialRatePanel
+from .protein_mm_fit import MMFitPanel
 
 PLANNED = (
     ("AI 预测验证", "规划中：可保存原始预测记录；尚无预测评价、性能计算、训练或自动推荐。"),
@@ -82,12 +87,18 @@ class ProteinEngineeringPage(QWidget):
         self.preview = None
         self._busy = False
         self._worker = None
+        self._current_operation=None
+        self._operations={}
+        self.operation_history={}
+        self._generation=0
+        self._session_id=uuid4().hex
+        self._closing=False
         self._records = []
         self._preview_controls = []
         root = QVBoxLayout(self)
         root.addWidget(_label("蛋白质工程（Protein Engineering）— 独立研究模块"))
-        root.addWidget(_label("可用：Phase A/B 数据基础、B.1 审计与 C.1 显式区间初始速率基础。Phase 0 真实数据尚未验收；未实现阶段不标完成。"))
-        root.addWidget(_label("不使用抗体风险分数或 ESM2/HIC 模型评估酶；原始、校正与派生结果分离。不训练、不联网、不自动调用 Provider。Km/Vmax、AI 验证、结构映射、DBTL 仍为规划中。"))
+        root.addWidget(_label("可用：A/B 数据基础、B.1 审计、C.1 初始速率与 C.2A 显式条件拟合/本地报告。C.2A 需 SciPy/NumPy；冻结安装包依赖另待验收。Phase 0 真实数据尚未验收。"))
+        root.addWidget(_label("不使用抗体风险分数或 ESM2/HIC 模型评估酶。不训练、不联网。条件参数区间、真实数据 Monte Carlo、WT 比较、AI 验证、结构映射与 DBTL 未接入本界面。"))
         path_row = QHBoxLayout()
         self.database_path = QLineEdit(str(default_database_path()))
         self.database_path.setToolTip("默认位于用户数据目录。打开页面不会创建数据库；点击打开后才初始化/迁移。")
@@ -107,6 +118,8 @@ class ProteinEngineeringPage(QWidget):
         self._build_experiments()
         self.rate_panel = InitialRatePanel(self)
         self.tabs.addTab(self.rate_panel, "酶学分析（C.1）")
+        self.mm_panel = MMFitPanel(self)
+        self.tabs.addTab(self.mm_panel, "Michaelis–Menten（C.2A）")
         for name, message in PLANNED:
             page = QWidget()
             layout = QVBoxLayout(page)
@@ -257,36 +270,98 @@ class ProteinEngineeringPage(QWidget):
         self.import_button.setEnabled(not busy and self.store is not None and self.preview is not None and self.preview.valid)
         if hasattr(self, "rate_panel"):
             self.rate_panel.set_busy(busy)
+        if hasattr(self, "mm_panel"):
+            self.mm_panel.set_busy(busy)
 
-    def _run(self, function, done):
-        if self._busy:
-            return
+    def _ui_alive(self):
+        return not self._closing and not getattr(self.window(),'_shutdown_requested',False)
+
+    def _new_session(self):
+        self._generation+=1
+        self._session_id=uuid4().hex
+        current=self._current_operation
+        self._current_operation=None;self._worker=None
+        if current in self._operations:
+            entry=self._operations[current]
+            self.operation_history[current]['status']='STALE_OPERATION'
+            self._abandon(entry,'STALE_OPERATION')
+            entry['worker'].cancel()
+        self._busy=False
+
+    def _abandon(self,entry,status):
+        callback=entry.pop('abandoned',None)
+        if callback is not None and self._ui_alive():
+            try:callback(status)
+            except Exception as exc:
+                self.operation_history[entry['id']]['callback_error']=sanitize_error(str(exc))
+
+    def _run(self, function, done, *, task_type='DATA_OPERATION', input_snapshot=None, abandoned=None):
+        if QThread.currentThread()!=self.thread():raise RuntimeError('Protein operation must start on GUI thread')
+        if self._busy or not self._ui_alive():return None
+        identifier=uuid4().hex
+        snapshot={'database_path':self.database_path.text(),'view_kind':self.view_kind.currentData()}
+        if input_snapshot is not None:snapshot.update(input_snapshot)
         self._set_busy(True)
-        worker = Worker(function)
+        worker = OperationWorker(function,identifier)
+        self._operations[identifier]=dict(id=identifier,session=self._session_id,generation=self._generation,
+            worker=worker,callback=done,abandoned=abandoned)
+        self.operation_history[identifier]=dict(operation_id=identifier,session_id=self._session_id,
+            generation=self._generation,task_type=task_type,input_snapshot=deepcopy(snapshot),
+            status='RUNNING',physically_finished=False,executed=None)
+        self._current_operation=identifier
         self._worker = worker
-        self._on_done = done
-        worker.signals.finished.connect(self._worker_done)
-        worker.signals.error.connect(self._worker_failed)
+        worker.signals.settled.connect(self._operation_settled,Qt.ConnectionType.QueuedConnection)
         QThreadPool.globalInstance().start(worker)
+        return identifier
 
     @Slot(object)
-    def _worker_done(self, result):
-        done = self._on_done
-        self._on_done = None
-        self._worker = None
-        self._set_busy(False)
-        done(result)
+    def _operation_settled(self, outcome):
+        if QThread.currentThread()!=self.thread():raise RuntimeError('Operation delivery left GUI thread')
+        identifier=outcome['operation_id'];entry=self._operations.get(identifier)
+        if entry is None:return
+        audit=self.operation_history[identifier]
+        audit['executed']=outcome['executed']
+        if outcome['phase']=='COMPLETED':audit['physically_finished']=True
+        current=(identifier==self._current_operation and entry['session']==self._session_id
+            and entry['generation']==self._generation)
+        alive=self._ui_alive()
+        if not current or not alive:
+            if audit['status']!='CANCELLED':audit['status']='STALE_OPERATION' if alive else 'CLOSED_OPERATION'
+            if current:
+                self._current_operation=None;self._worker=None;self._busy=False
+                if not alive:
+                    self.mm_panel._pending=False;self.mm_panel._pending_operation=None
+            if alive:self._abandon(entry,'STALE_OPERATION')
+        else:
+            self._current_operation=None;self._worker=None;self._set_busy(False)
+            audit['status']=outcome['status']
+            if outcome['status']=='SUCCEEDED':
+                if isinstance(outcome['value'],dict) and outcome['value'].get('ok') is False:
+                    audit['status']='FAILED'
+                try:entry['callback'](outcome['value'])
+                except Exception as exc:
+                    audit.update(status='CALLBACK_FAILED',callback_error=sanitize_error(str(exc)))
+                    self._abandon(entry,'CALLBACK_FAILED')
+                    if self._current_operation is None and self._ui_alive():
+                        self.status.setText('回调未完成：'+audit['callback_error'])
+            else:
+                self._abandon(entry,outcome['status'])
+                if self._current_operation is None and self._ui_alive():
+                    self.status.setText('操作已取消' if outcome['status']=='CANCELLED' else '操作未完成：'+outcome.get('error',''))
+        if audit['physically_finished']:self._operations.pop(identifier,None)
 
-    @Slot(str)
-    def _worker_failed(self, message):
-        self._worker = None
-        self._on_done = None
-        self._set_busy(False)
-        self.status.setText("操作未完成：" + message)
+    def closeEvent(self,event):
+        self._closing=True
+        self._new_session()
+        self.mm_panel._pending=False;self.mm_panel._pending_operation=None
+        for entry in tuple(self._operations.values()):entry['worker'].cancel()
+        super().closeEvent(event)
 
     def _database_changed(self):
+        self._new_session()
         self.store = None
         self.rate_panel.reset()
+        self.mm_panel.reset()
         self._records = []
         self._invalidate_preview()
         self.record_table.setRowCount(0)
@@ -302,18 +377,24 @@ class ProteinEngineeringPage(QWidget):
             self._database_changed()
 
     def open_database(self):
+        if self._busy or not self._ui_alive():return
         path = self.database_path.text().strip()
         if not path:
             self.status.setText("请输入本地数据库路径")
             return
+        self._new_session()
+        self.store=None
+        self.rate_panel.reset();self.mm_panel.reset()
         def opened(store):
+            if not isinstance(store,_ProteinStoreType):raise TypeError('Invalid ProteinStore operation result')
             self.store = store
             self.rate_panel.reset()
+            self.mm_panel.reset()
             self._invalidate_preview()
             self.status.setText("本地数据库已打开；原件保留。C.1 分析需显式选择序列、区间和校正，不自动计算。")
             self._set_busy(False)
             self.refresh()
-        self._run(lambda: ProteinStore(path), opened)
+        self._run(lambda: ProteinStore(path), opened,task_type='OPEN_DATABASE',input_snapshot={'path':path})
 
     def _invalidate_preview(self, *_):
         self.preview = None
@@ -363,6 +444,7 @@ class ProteinEngineeringPage(QWidget):
     def _saved(self, result):
         self._invalidate_preview()
         self.rate_panel.reset()
+        self.mm_panel.reset()
         self.view_kind.blockSignals(True)
         self.view_kind.setCurrentIndex(self.view_kind.findData(result["kind"]))
         self.view_kind.blockSignals(False)

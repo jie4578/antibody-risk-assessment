@@ -25,7 +25,7 @@ class InitialRatePanel(QWidget):
         self.calibration=None
         self._saved_fingerprint=None
         layout=QVBoxLayout(self)
-        layout.addWidget(label("可用：C.1 显式区间信号斜率、空白校正、条件充分时标定换算、QC 与派生记录。线性不证明初始速率有效；不自动选择最高 R² 区间。Michaelis–Menten、WT/变体统计比较仍为规划中。"))
+        layout.addWidget(label("可用：C.1 显式区间信号斜率、空白校正、标定换算、QC 与派生记录。线性不证明初始速率有效；不自动选择最高 R² 区间。相邻 C.2A 面板读取已保存记录作条件拟合；WT/变体统计比较未实现。"))
         row=QHBoxLayout()
         self.refresh_button=QPushButton("刷新已导入时间序列")
         self.course=QComboBox()
@@ -205,6 +205,7 @@ class InitialRatePanel(QWidget):
 
     def _saved(self,identifier):
         self._saved_fingerprint=self.result["analysis_metadata"]["analysis_fingerprint"]
+        self.host.mm_panel.reset()
         self.host.status.setText("独立派生记录已保存："+identifier+"；原始观测未改写。")
         # Keep displayed evidence, require a new calculation before another save.
         self.save_button.setEnabled(False)
