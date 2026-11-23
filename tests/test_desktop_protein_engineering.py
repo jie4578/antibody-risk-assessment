@@ -31,7 +31,7 @@ def idle(page, app):
 def test_seventh_entry_keeps_antibody_navigation_and_no_startup_database(qt_application, tmp_path):
     from desktop.main_window import MainWindow
     window = MainWindow()
-    assert window.nav.count() == window.stack.count() == 7
+    assert window.nav.count() == window.stack.count() == 8
     assert [window.nav.item(i).text() for i in range(6)] == ["单条分析", "批量分析", "突变", "文献", "AI 助手", "设置"]
     window.nav.setCurrentRow(6)
     assert window.stack.currentWidget() is window.protein_engineering
