@@ -14,6 +14,7 @@ from desktop.widgets.single_analysis import SingleAnalysisPage
 from desktop.widgets.mutation import MutationPage
 from desktop.widgets.literature import LiteraturePage
 from desktop.widgets.protein_engineering import ProteinEngineeringPage
+from desktop.widgets.research_workflow import ResearchWorkflowPage
 
 
 class MainWindow(QMainWindow):
@@ -28,7 +29,10 @@ class MainWindow(QMainWindow):
         self.protein_engineering = ProteinEngineeringPage()
         self.stack.addWidget(self.protein_engineering)
         self.nav.addItem("蛋白质工程")
-        self.setWindowTitle("抗体与蛋白质工程科研工作台")
+        self.research_workflow = ResearchWorkflowPage(self.nav.setCurrentRow)
+        self.stack.addWidget(self.research_workflow)
+        self.nav.addItem("科研工作流")
+        self.setWindowTitle("BioResearch Workbench — 抗体与蛋白质工程科研工作台")
         self.nav.setFixedWidth(136)
         from desktop.version import project_version
         self.setWindowTitle(self.windowTitle() + " — " + project_version() + " 候选版")

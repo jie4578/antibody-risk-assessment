@@ -23,6 +23,8 @@ def test_installed_wheel_has_no_validation_runtime_dependency(tmp_path):
     with zipfile.ZipFile(wheel) as archive:
         assert "config.py" in archive.namelist()
         assert "desktop/zh_cn.py" in archive.namelist()
+        assert "desktop/integrations/adapters.py" in archive.namelist()
+        assert "desktop/widgets/research_workflow.py" in archive.namelist()
         assert "protein_engineering/storage.py" in archive.namelist()
         assert "protein_engineering/initial_rate.py" in archive.namelist()
         assert "protein_engineering/rate_storage.py" in archive.namelist()
@@ -34,7 +36,8 @@ def test_installed_wheel_has_no_validation_runtime_dependency(tmp_path):
         assert not any(name.startswith("validation/") for name in archive.namelist())
     smoke = "import sys; sys.path.insert(0, sys.argv[1]); import config, ml_inference, agent.llm; from protein_engineering.initial_rate import ANALYSIS_VERSION; assert ANALYSIS_VERSION == 'initial-rate-1.0.0'; from protein_engineering.resources import template_bytes,document_text; assert template_bytes('samples').startswith(b'sample_id'); assert document_text('FOUNDATION_STATUS.md'); "
     if importlib.util.find_spec("PySide6"):
-        smoke += "import desktop.main; "
+        smoke += "import desktop.main; import desktop.widgets.research_workflow; "
+    smoke += "from desktop.integrations import inspect_biolab, inspect_literature; assert not any(n.startswith(('biolab_copilot', 'paper_pipeline', 'batch_manager')) for n in sys.modules); "
     smoke += "assert not any(n == 'validation' or n.startswith('validation.') for n in sys.modules)"
     result = subprocess.run([sys.executable, "-I", "-c", smoke, str(wheel)], cwd=tmp_path, capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
