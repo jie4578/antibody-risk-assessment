@@ -236,6 +236,22 @@ class Evidence:
     source_file: str | None = None
     source_alias: str | None = None
     batch_id: str | None = None
+    location_status: str = "UPSTREAM_CLAIM_ONLY"
+
+
+@dataclass(frozen=True)
+class LiteratureDocument:
+    document_id: str
+    display_name: str
+    source_alias: str
+    source_content_sha256: str | None
+    state: str
+    result_file: str
+    title_candidate: str | None = None
+    title_source: str | None = None
+    doi: str | None = None
+    physical_pages: tuple[int, ...] = ()
+    evidence_count: int = 0
 
 
 @dataclass(frozen=True)
@@ -256,6 +272,7 @@ class ResultSummary:
     counts: tuple[tuple[str, int], ...] = ()
     evidence: tuple[Evidence, ...] = ()
     producer_versions: tuple[tuple[str, str], ...] = ()
+    documents: tuple[LiteratureDocument, ...] = ()
 
     def as_dict(self):
         value = asdict(self)

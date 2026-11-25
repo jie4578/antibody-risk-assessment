@@ -134,11 +134,12 @@ class ResearchWorkflowPage(QWidget):
         layout.addWidget(local)
         self.tabs = QTabWidget()
         self.biolab = ResultImportPanel("biolab")
-        self.literature = ResultImportPanel("literature")
+        from desktop.widgets.literature_evidence import LiteratureEvidencePanel
+        self.literature = LiteratureEvidencePanel()
         self.tabs.addTab(self.biolab, "B. 实验数据分析｜只读结果")
         self.tabs.addTab(self.literature, "C. 论文与科研证据｜只读结果")
         layout.addWidget(self.tabs, 1)
-        note = QLabel("已实现：本地结果合同接入、来源与状态展示。规划中：独立环境引擎调用。"
+        note = QLabel("已实现：本地结果合同接入、来源与状态展示、已有文献证据阅读。外部引擎自动执行未启用。"
                       "ELISA 未验证；文献 verified 仅为上游原文定位，不证明科学结论。")
         note.setTextFormat(Qt.PlainText)
         note.setWordWrap(True)
