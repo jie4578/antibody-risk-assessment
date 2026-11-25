@@ -1,5 +1,5 @@
 """Adapters pinned to reviewed external schemas, not their Python environments."""
-from .common import (Artifact, Evidence, IntegrationError, ResultDirectory, ResultSummary,
+from .common import (Artifact, Evidence, IntegrationError, LiteratureDocument, ResultDirectory, ResultSummary,
                      array, artifact, integer, mapping, require, sha, text)
 
 BIOLAB_REVISION = "dcc7ac4a9accae4a03ad7857950169e0f2ed640c"
@@ -43,6 +43,14 @@ def _result_artifact(directory, location, role, expected=None, size=None):
     return artifact(directory, location, role, expected, size, read_bytes=not raw)
 
 
+def _literature_identity(value, doc, task):
+    """Validate declared identity independently of the number of evidence items."""
+    for key, expected in (("document_id", doc["document_id"]), ("content_sha256", doc["content_sha256"]),
+                          ("task_id", task), ("source_alias", doc["source_alias"])):
+        require(key not in value or value[key] == expected,
+                "CITATION_SOURCE_MISMATCH", "引文或结果身份与当前批次来源不一致")
+
+
 def _citation_source(fact, result, doc, input_map, documents, task):
     """Check the declared chain, never infer identity from a filename alone or open it."""
     name = doc["display_name"]
@@ -56,10 +64,7 @@ def _citation_source(fact, result, doc, input_map, documents, task):
     # different document hashes sharing that name, so fail closed in that case.
     require(not any(other["document_id"] != doc["document_id"] and other["display_name"] == name
                     for other in documents), "AMBIGUOUS_CITATION_SOURCE", "同名不同文档不能据文件名绑定引文")
-    for obj in (result, fact):
-        for key, expected in (("document_id", doc["document_id"]), ("content_sha256", doc["content_sha256"]),
-                              ("task_id", task), ("source_alias", doc["source_alias"])):
-            require(key not in obj or obj[key] == expected, "CITATION_SOURCE_MISMATCH", "引文或结果身份与当前批次来源不一致")
+    _literature_identity(fact, doc, task)
     return source
 
 
@@ -177,7 +182,41 @@ def inspect_literature(selected):
     return _safe_call(_literature, selected)
 
 
-def _literature(directory):
+def inspect_literature_evidence(selected):
+    """v0.4 batch-v2 reader; atomically validate before committing a UI snapshot."""
+    return _safe_call(lambda directory: _literature(directory, for_reader=True), selected)
+
+
+def _page_inventory(result):
+    pages = {}
+    for page in array(result.get("pages", [])):
+        mapping(page)
+        number = page.get("page_number")
+        require(type(number) is int and number > 0 and number not in pages,
+                "INVALID_PAGE", "结果中的 PDF 物理页码缺失、重复或无效")
+        raw = page.get("raw_text", page.get("text", ""))
+        require(isinstance(raw, str), "INVALID_STRUCTURE", "页面原文必须为文本")
+        if "source_file" in page:
+            require(page["source_file"] == result.get("file_name"),
+                    "CITATION_SOURCE_MISMATCH", "页面来源与文献结果不一致")
+        pages[number] = raw
+    return pages
+
+
+def _reader_location(start, end, quote, upstream_verified, pages):
+    require((start is None) == (end is None), "INVALID_PAGE", "物理页码范围不完整")
+    if start is None or not pages:
+        return "INSUFFICIENT_LOCATION"
+    # Check membership without iterating over an untrusted, potentially huge range.
+    members = [number for number in sorted(pages) if start <= number <= end]
+    require(len(members) == end - start + 1, "INVALID_PAGE", "引文超出已有结果的物理页码范围")
+    if not upstream_verified:
+        return "UPSTREAM_UNVERIFIED"
+    return ("RESULT_TEXT_MATCH" if quote in "\n".join(pages[n] for n in members)
+            else "LOCATION_NOT_REPRODUCED")
+
+
+def _literature(directory, for_reader=False):
     require(directory.manifest.name == "batch_manifest.json", "UNSUPPORTED_FORMAT", "仅支持 batch_manifest.json schema v2")
     m = directory.json(directory.manifest)
     _version(m.get("schema_version"), 2)
@@ -186,6 +225,7 @@ def _literature(directory):
     mode = text(m.get("report_mode")); text(m.get("created_at")); text(m.get("updated_at"))
     inputs = array(m.get("inputs")); documents = array(m.get("documents"))
     input_map = {}; doc_map = {}; warnings = []; sources = []; artifacts = []; evidence = []
+    document_views = []
     for item in inputs:
         item = mapping(item); iid = text(item.get("input_id"))
         require(iid not in input_map, "IDENTITY_MISMATCH", "输入 ID 重复")
@@ -214,13 +254,22 @@ def _literature(directory):
         result_file = text(doc.get("result_file"))
         entry = _result_artifact(directory, result_file, "paper_result")
         artifacts.append(entry)
+        if for_reader:
+            require(doc["status"] != "completed" or entry.exists,
+                    "MISSING_RESULT", "已完成文档的结构化结果文件缺失：" + result_file)
+        result = {}; pages = {}; first_evidence = len(evidence)
         # Failed/in-progress results never become usable scientific evidence.
         if entry.exists and doc["status"] == "completed":
             result = directory.json(directory.path(result_file))
             require(result.get("document_id") == did and result.get("content_sha256") == doc.get("content_sha256"),
                     "INTEGRITY_MISMATCH", "文献结果与 manifest 文档身份不一致")
+            _literature_identity(result, doc, task)
             require(not array(result.get("errors", [])), "INTEGRITY_MISMATCH", "完成文档仍含处理错误")
             warnings.extend(text(x) for x in array(result.get("warnings", [])))
+            if for_reader:
+                require(result.get("file_name") == doc["display_name"],
+                        "CITATION_SOURCE_MISMATCH", "文献结果文件名与当前来源身份不一致")
+                pages = _page_inventory(result)
             for key in ("facts", "evidence"):
                 for fact in array(result.get(key, [])):
                     mapping(fact)
@@ -234,12 +283,27 @@ def _literature(directory):
                     require(type(flag) is bool)
                     require(not flag or (start is not None and end is not None), "INVALID_STRUCTURE", "定位声明缺少页码")
                     flags = tuple(text(x) for x in array(fact.get("quality_flags", [])))
+                    location = (_reader_location(start, end, quote, flag, pages)
+                                if for_reader else "UPSTREAM_CLAIM_ONLY")
                     evidence.append(Evidence(did, fingerprint, quote, start, end, flag, flags,
-                                             source_file=source, source_alias=doc["source_alias"], batch_id=task))
+                                             source_file=source, source_alias=doc["source_alias"], batch_id=task,
+                                             location_status=location))
                     require(len(evidence) <= 2000, "RESULT_LIMIT", "证据条数超过本轮展示范围")
         if doc.get("individual_report"):
-            artifacts.append(_result_artifact(directory, doc["individual_report"], "individual_report"))
+            report = _result_artifact(directory, doc["individual_report"], "individual_report")
+            if for_reader:
+                require(report.exists, "MISSING_REPORT", "已声明报告文件缺失：" + doc["individual_report"])
+            artifacts.append(report)
         doc_map[did] = doc
+        if for_reader:
+            title = result.get("title_candidate")
+            title_source = result.get("title_source")
+            doi = result.get("doi")
+            document_views.append(LiteratureDocument(
+                did, doc["display_name"], doc["source_alias"], fingerprint, doc["status"], result_file,
+                text(title) if title is not None else None,
+                text(title_source) if title_source is not None else None,
+                text(doi) if doi is not None else None, tuple(sorted(pages)), len(evidence) - first_evidence))
     for iid, item in input_map.items():
         require(item["document_id"] in doc_map and iid in doc_map[item["document_id"]]["input_ids"], "IDENTITY_MISMATCH", "输入没有对应文档")
         if item["status"] == "duplicate":
@@ -262,6 +326,8 @@ def _literature(directory):
     try:
         status = directory.json(status_path)
     except FileNotFoundError:
+        # Strict reader completeness must not change MERGE-01's degraded intake.
+        require(not for_reader, "MISSING_STATUS", "必需批次状态文件缺失：status.json")
         status = None
         warnings.append("status.json 缺失；没有独立状态快照可比对。")
     if status is not None:
@@ -279,4 +345,4 @@ def _literature(directory):
                              "verified=true 只保留上游原文匹配/定位声明；本程序没有重新核对 PDF，不代表科学结论真实。",
                              "规则提取、机器翻译和 LLM 生成内容均为上游研究材料，不能升级为已验证科学事实。",
                              "仅支持 Local Offline schema v2 批次；独立 Provider pipeline 的 status.json 没有此合同，不兼容。",
-                         ), tuple(counts.items()), tuple(evidence))
+                         ), tuple(counts.items()), tuple(evidence), documents=tuple(document_views))
