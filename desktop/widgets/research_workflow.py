@@ -24,6 +24,7 @@ def _read_operation(token, loader, filename):
 
 class ResultImportPanel(QWidget):
     snapshot_changed = Signal(object)
+    import_failed = Signal(str)
 
     def __init__(self, kind, parent=None):
         super().__init__(parent)
@@ -91,6 +92,7 @@ class ResultImportPanel(QWidget):
             self.summary = None
             self.details.clear()
             self.status.setText("拒绝接入：" + error)
+            self.import_failed.emit(error)
             return
         self.summary = summary
         counts = dict(summary.counts)
@@ -143,9 +145,17 @@ class ResearchWorkflowPage(QWidget):
         self.biolab = BioLabSummaryPanel()
         self.literature = LiteratureEvidencePanel()
         self.case = CaseOverview(sequence_getter or (lambda: None))
+        self.case.files.reset_intake = self._reset_intake
+        self.case.files.literature = self.literature
         self.biolab.snapshot_changed.connect(lambda summary: self.case.accept_external("biolab", summary))
         self.literature.snapshot_changed.connect(lambda summary: self.case.accept_external("literature", summary))
+        self.biolab.import_failed.connect(lambda error: self.case.files.source_unavailable("biolab"))
+        self.literature.import_failed.connect(lambda error: self.case.files.source_unavailable("literature"))
         self.tabs.addTab(self.biolab, "B. 实验数据分析｜只读结果")
         self.tabs.addTab(self.literature, "C. 论文与科研证据｜只读结果")
         self.tabs.addTab(self.case, "案例概览与关联")
         layout.addWidget(self.tabs, 1)
+
+    def _reset_intake(self):
+        self.biolab.clear()
+        self.literature.clear()
