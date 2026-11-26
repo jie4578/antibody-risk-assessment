@@ -1,5 +1,7 @@
 """Adapters pinned to reviewed external schemas, not their Python environments."""
-from .common import (Artifact, Evidence, IntegrationError, LiteratureDocument, ResultDirectory, ResultSummary,
+from math import isfinite
+
+from .common import (Artifact, ElisaReportSummary, Evidence, IntegrationError, LiteratureDocument, ResultDirectory, ResultSummary,
                      array, artifact, integer, mapping, require, sha, text)
 
 BIOLAB_REVISION = "dcc7ac4a9accae4a03ad7857950169e0f2ed640c"
@@ -84,6 +86,54 @@ def inspect_biolab(selected):
     return _safe_call(_biolab, selected)
 
 
+def _elisa_summary(data, methods, fingerprint):
+    """BioLab 0.1.0 report renderer: curve_parameters and diagnostics."""
+    def section(value, name):
+        item = value.get(name)
+        require(item is None or isinstance(item, dict), "INVALID_ELISA_FIELD", name + " 格式无效")
+        return item if item is not None else {}
+
+    def number(record, name):
+        value = record.get(name)
+        if value is None:
+            return None
+        require(type(value) in (int, float), "INVALID_ELISA_FIELD", name + " 必须为有限数值")
+        try:
+            converted = float(value)
+        except OverflowError:
+            raise IntegrationError("INVALID_ELISA_FIELD", name + " 超出有限数值范围") from None
+        require(isfinite(converted), "INVALID_ELISA_FIELD", name + " 必须为有限数值")
+        return converted
+
+    def label(record, name):
+        value = record.get(name)
+        return None if value is None else text(value)
+
+    results = section(data, "results")
+    curve = section(results, "curve_parameters")
+    diag = section(results, "diagnostics")
+    count = diag.get("n_fit_levels")
+    require(count is None or (type(count) is int and count >= 0),
+            "INVALID_ELISA_FIELD", "n_fit_levels 必须为非负整数")
+    labels = {}
+    for name in ("direction", "concentration_unit", "response_unit"):
+        value = label(curve, name)
+        declared = label(methods, name)
+        require(value is None or declared is None or value == declared,
+                "INVALID_ELISA_FIELD", name + " 与方法声明不一致")
+        labels[name] = value if value is not None else declared
+    require(labels["direction"] in {None, "increasing", "decreasing"},
+            "INVALID_ELISA_FIELD", "direction 不符合 4PL 报告合同")
+    return ElisaReportSummary(
+        report_data_sha256=fingerprint,
+        **{name: number(curve, name) for name in (
+            "lower_asymptote", "upper_asymptote", "midpoint_concentration", "slope_magnitude")},
+        **labels, n_fit_levels=count, r_squared=number(diag, "r_squared"), rmse=number(diag, "rmse"),
+        convergence_status=label(diag, "convergence_status"), curve_validated=methods["curve_validated"],
+        validated_quantification_enabled=methods["validated_quantification_enabled"],
+    )
+
+
 def _biolab(directory):
     require(directory.manifest.name in {"run_manifest.json", "report_manifest.json"},
             "UNSUPPORTED_FORMAT", "请选择 run_manifest.json 或 report_manifest.json")
@@ -134,6 +184,7 @@ def _biolab(directory):
         require(m.get("intended_use") in {None, "research_only"}, "SCIENTIFIC_CONTRACT_MISMATCH", "仅支持科研用途结果")
         warnings.append("independence_status=" + str(m.get("independence_status", "NOT_DECLARED")))
     artifacts = []
+    elisa = None
     for item in array(m.get("output_files")):
         item = mapping(item)
         if "schema_version" in item:
@@ -156,6 +207,9 @@ def _biolab(directory):
             if experiment == "elisa_4pl":
                 require(methods.get("curve_validated") is False and methods.get("validated_quantification_enabled") is False,
                         "SCIENTIFIC_CONTRACT_MISMATCH", "ELISA 报告缺少明确的未验证限制")
+                require(entry.hash_status == "CONTENT_HASH_MATCH" and elisa is None,
+                        "INTEGRITY_MISMATCH", "ELISA report_data 摘要必须匹配且只可声明一次")
+                elisa = _elisa_summary(data, methods, entry.observed_sha256)
             for key in ("curve_validated", "validated_quantification_enabled"):
                 if key in methods:
                     require(methods[key] is False, "SCIENTIFIC_CONTRACT_MISMATCH", "不能将未验证的 ELISA 报告升级为已验证")
@@ -175,7 +229,8 @@ def _biolab(directory):
     directory.finish()
     return ResultSummary("BioLab-Copilot", BIOLAB_REVISION, "1.0", identifier, state, source_state, experiment,
                          str(directory.manifest), directory.ledger[directory.manifest][1], tuple(artifacts),
-                         tuple(sources), tuple(warnings), limitations, producer_versions=producer_versions)
+                         tuple(sources), tuple(warnings), limitations, producer_versions=producer_versions,
+                         elisa=elisa if state == "COMPLETED_SOURCE_REPORTED" else None)
 
 
 def inspect_literature(selected):
@@ -274,7 +329,8 @@ def _literature(directory, for_reader=False):
                 for fact in array(result.get(key, [])):
                     mapping(fact)
                     source = _citation_source(fact, result, doc, input_map, documents, task)
-                    quote = fact.get("evidence_quote_raw") or fact.get("evidence_quote")
+                    raw_quote = fact.get("evidence_quote_raw")
+                    quote = raw_quote or fact.get("evidence_quote")
                     quote = text(quote)
                     start, end = fact.get("pdf_page_start"), fact.get("pdf_page_end")
                     require(start is None or (type(start) is int and start > 0))
@@ -285,9 +341,12 @@ def _literature(directory, for_reader=False):
                     flags = tuple(text(x) for x in array(fact.get("quality_flags", [])))
                     location = (_reader_location(start, end, quote, flag, pages)
                                 if for_reader else "UPSTREAM_CLAIM_ONLY")
+                    category = fact.get("category")
                     evidence.append(Evidence(did, fingerprint, quote, start, end, flag, flags,
                                              source_file=source, source_alias=doc["source_alias"], batch_id=task,
-                                             location_status=location))
+                                             location_status=location,
+                                             category=category if isinstance(category, str) and 0 < len(category) <= 4096 else None,
+                                             has_raw_quote=bool(raw_quote)))
                     require(len(evidence) <= 2000, "RESULT_LIMIT", "证据条数超过本轮展示范围")
         if doc.get("individual_report"):
             report = _result_artifact(directory, doc["individual_report"], "individual_report")
