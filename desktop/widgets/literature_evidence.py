@@ -4,11 +4,13 @@ from pathlib import Path
 import uuid
 
 from PySide6.QtCore import QThreadPool, Qt, Slot
+from PySide6.QtGui import QTextOption
 from PySide6.QtWidgets import (QAbstractItemView, QFileDialog, QHeaderView,
                                QLabel, QPlainTextEdit, QSplitter, QTableWidget,
                                QTableWidgetItem, QTabWidget, QVBoxLayout, QWidget)
 
 from desktop.integrations.adapters import inspect_literature_evidence
+from desktop.integrations.citation_groups import count_citations
 from desktop.integrations.common import IntegrationError, ResultSummary
 from desktop.widgets.research_workflow import ResultImportPanel, _read_operation
 from desktop.workers import Worker
@@ -29,7 +31,7 @@ def _table(headers):
     table.setSelectionBehavior(QAbstractItemView.SelectRows)
     table.setSelectionMode(QAbstractItemView.SingleSelection)
     table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-    table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+    table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
     table.horizontalHeader().setStretchLastSection(True)
     return table
 
@@ -46,27 +48,47 @@ class LiteratureEvidencePanel(ResultImportPanel):
         self.pending_path = None
         self.select_button.setText("导入文献批次与已有证据")
         self.layout().removeWidget(self.details)
-        self.document_table = _table(["标题候选 / 文件名", "来源标签", "处理状态", "证据数"])
-        self.evidence_table = _table(["PDF 物理页码", "定位状态", "质量警示", "原文片段"])
+        self.document_table = _table(["标题候选 / 文件名", "来源标签", "处理状态", "记录数"])
+        self.document_table.horizontalHeader().setStretchLastSection(False)
+        self.document_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.document_table.setColumnWidth(2, 76)
+        self.document_table.setColumnWidth(3, 56)
+        self.document_table.setColumnHidden(1, True)  # Complete source label stays in the detail pane.
+        self.evidence_table = _table(["PDF 物理页码", "定位状态", "质量警示", "原文片段", "提取类别"])
+        self.evidence_table.setColumnWidth(0, 96)
+        self.evidence_table.setColumnWidth(1, 185)
+        self.evidence_table.setColumnWidth(2, 116)
+        self.evidence_table.setColumnWidth(3, 205)
         self.document_details = QPlainTextEdit()
         self.document_details.setReadOnly(True)
-        self.document_details.setMaximumHeight(125)
         self.quote = QPlainTextEdit()
         self.quote.setReadOnly(True)
+        self.quote.setWordWrapMode(QTextOption.WrapAtWordBoundaryOrAnywhere)
         self.quote.setPlaceholderText("选择文献及证据后阅读已有原文；不会打开或解析 PDF。")
         reader = QWidget()
         layout = QVBoxLayout(reader)
-        note = QLabel("verified 仅是上游原文定位声明，不代表科学事实真实。物理页码不是期刊印刷页码。"
-                      "本页只比对已有 JSON 页文本，未独立读取 PDF 或验证其来源哈希。")
+        note = QLabel("页码为 PDF 物理位置。本页只比对结果 JSON；verified 是上游定位声明，原始 PDF 未独立核验。"
+                      "引文组按同批次、同文献、相同页码及原文统计。上游无精确偏移，组数不可作为独立实验或证据强度。")
         note.setTextFormat(Qt.PlainText)
         note.setWordWrap(True)
         layout.addWidget(note)
-        splitter = QSplitter(Qt.Vertical)
-        for widget in (self.document_table, self.document_details, self.evidence_table, self.quote):
-            splitter.addWidget(widget)
-        layout.addWidget(splitter)
+        self.count_label = QLabel("尚未接入文献批次")
+        self.count_label.setTextFormat(Qt.PlainText)
+        layout.addWidget(self.count_label)
+        evidence_pane = QSplitter(Qt.Vertical)
+        evidence_pane.addWidget(self.evidence_table)
+        evidence_pane.addWidget(self.quote)
+        evidence_pane.setChildrenCollapsible(False)
+        evidence_pane.setSizes([170, 240])
+        splitter = QSplitter(Qt.Horizontal)
+        splitter.addWidget(self.document_table)
+        splitter.addWidget(evidence_pane)
+        splitter.setChildrenCollapsible(False)
+        splitter.setSizes([340, 740])
+        layout.addWidget(splitter, 1)
         self.reader_tabs = QTabWidget()
         self.reader_tabs.addTab(reader, "文献与证据")
+        self.reader_tabs.addTab(self.document_details, "所选文献来源")
         self.reader_tabs.addTab(self.details, "来源、报告位置与安全摘要")
         self.layout().addWidget(self.reader_tabs, 1)
         self.document_table.currentCellChanged.connect(self._document_selected)
@@ -121,6 +143,9 @@ class LiteratureEvidencePanel(ResultImportPanel):
                             f"接入状态={summary.state}；完成文档 {counts['completed_count']}，"
                             f"失败文档 {counts['failed_count']}。不代表科学结论有效。")
         self._populate_documents()
+        counts = count_citations(summary.evidence)
+        self.count_label.setText(f"批次：原始记录 {counts.records} · 引文组 {counts.groups} · 定位不足或未归组 {counts.unresolved}")
+        self.snapshot_changed.emit(summary)
 
     def _populate_documents(self):
         self.document_table.setRowCount(0)
@@ -165,7 +190,8 @@ class LiteratureEvidencePanel(ResultImportPanel):
             self.evidence_table.insertRow(n)
             pages = (f"{evidence.page_start}–{evidence.page_end}" if evidence.page_start is not None else "未提供")
             values = (pages, LOCATION_LABELS[evidence.location_status],
-                      "；".join(evidence.quality_flags) or "无上游质量标记", evidence.quote[:160])
+                      "；".join(evidence.quality_flags) or "无上游质量标记", evidence.quote[:160],
+                      evidence.category or "未提供")
             for col, value in enumerate(values):
                 self.evidence_table.setItem(n, col, QTableWidgetItem(value))
         if self.evidence_table.rowCount():
@@ -181,6 +207,7 @@ class LiteratureEvidencePanel(ResultImportPanel):
         self.quote.setPlainText(
             evidence.quote + "\n\n" + LOCATION_LABELS[evidence.location_status] +
             f"\n批次：{evidence.batch_id}\n文献：{evidence.document_id}\n来源：{evidence.source_file}"
+            f"\n提取类别：{evidence.category or '未提供'}"
             f"\n上游 verified 声明：{str(evidence.upstream_verified).lower()}"
             "\n以上均不证明科学事实真实；未重新读取 PDF。")
 
@@ -193,3 +220,4 @@ class LiteratureEvidencePanel(ResultImportPanel):
         self.document_details.clear()
         self.quote.clear()
         self._visible_evidence = ()
+        self.count_label.setText("尚未接入文献批次")

@@ -2,7 +2,7 @@
 import json
 import uuid
 
-from PySide6.QtCore import QThreadPool, Qt, Slot
+from PySide6.QtCore import QThreadPool, Qt, Signal, Slot
 from PySide6.QtWidgets import (QFileDialog, QGroupBox, QHBoxLayout, QLabel, QLineEdit,
                                QPlainTextEdit, QPushButton, QTabWidget, QVBoxLayout, QWidget)
 
@@ -23,6 +23,8 @@ def _read_operation(token, loader, filename):
 
 
 class ResultImportPanel(QWidget):
+    snapshot_changed = Signal(object)
+
     def __init__(self, kind, parent=None):
         super().__init__(parent)
         self.kind = kind
@@ -97,6 +99,7 @@ class ResultImportPanel(QWidget):
         self.status.setText(f"只读接入完成；上游状态={summary.source_state}；接入状态={summary.state}{count_text}。"
                             "内容哈希匹配不等于科学有效性。")
         self.details.setPlainText(json.dumps(summary.as_dict(), ensure_ascii=False, allow_nan=False, indent=2))
+        self.snapshot_changed.emit(summary)
 
     @Slot()
     def clear(self):
@@ -109,6 +112,7 @@ class ResultImportPanel(QWidget):
         self.path.clear()
         self.details.clear()
         self.status.setText("未接入；旧结果已清除，未修改来源文件。")
+        self.snapshot_changed.emit(None)
 
     def closeEvent(self, event):
         self._closed = True
@@ -117,7 +121,7 @@ class ResultImportPanel(QWidget):
 
 
 class ResearchWorkflowPage(QWidget):
-    def __init__(self, open_existing, parent=None):
+    def __init__(self, open_existing, parent=None, *, sequence_getter=None):
         super().__init__(parent)
         layout = QVBoxLayout(self)
         title = QLabel("BioResearch Workbench｜科研工作流")
@@ -133,14 +137,15 @@ class ResearchWorkflowPage(QWidget):
             self.entry_buttons[index] = button
         layout.addWidget(local)
         self.tabs = QTabWidget()
-        self.biolab = ResultImportPanel("biolab")
+        from desktop.widgets.biolab_summary import BioLabSummaryPanel
+        from desktop.widgets.case_overview import CaseOverview
         from desktop.widgets.literature_evidence import LiteratureEvidencePanel
+        self.biolab = BioLabSummaryPanel()
         self.literature = LiteratureEvidencePanel()
+        self.case = CaseOverview(sequence_getter or (lambda: None))
+        self.biolab.snapshot_changed.connect(lambda summary: self.case.accept_external("biolab", summary))
+        self.literature.snapshot_changed.connect(lambda summary: self.case.accept_external("literature", summary))
         self.tabs.addTab(self.biolab, "B. 实验数据分析｜只读结果")
         self.tabs.addTab(self.literature, "C. 论文与科研证据｜只读结果")
+        self.tabs.addTab(self.case, "案例概览与关联")
         layout.addWidget(self.tabs, 1)
-        note = QLabel("已实现：本地结果合同接入、来源与状态展示、已有文献证据阅读。外部引擎自动执行未启用。"
-                      "ELISA 未验证；文献 verified 仅为上游原文定位，不证明科学结论。")
-        note.setTextFormat(Qt.PlainText)
-        note.setWordWrap(True)
-        layout.addWidget(note)

@@ -17,19 +17,42 @@ from desktop.widgets.protein_engineering import ProteinEngineeringPage
 from desktop.widgets.research_workflow import ResearchWorkflowPage
 
 
+class WorkbenchStack(QStackedWidget):
+    """Use the workflow page's own geometry inside the shared scroll area."""
+
+    def sizeHint(self):
+        current = self.currentWidget()
+        if isinstance(current, ResearchWorkflowPage):
+            return current.sizeHint()
+        return super().sizeHint()
+
+    def minimumSizeHint(self):
+        current = self.currentWidget()
+        if isinstance(current, ResearchWorkflowPage):
+            return current.minimumSizeHint()
+        return super().minimumSizeHint()
+
+    def heightForWidth(self, width):
+        current = self.currentWidget()
+        if isinstance(current, ResearchWorkflowPage):
+            return current.heightForWidth(width)
+        return super().heightForWidth(width)
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         from PySide6.QtWidgets import QApplication
         install_qt_chinese(QApplication.instance())
         self.setWindowTitle("抗体 AI 科研助手 — 桌面工作台"); self.resize(1100, 750); self._config = load_settings()
-        self.nav = QListWidget(); self.nav.addItems(["单条分析", "批量分析", "突变", "文献", "AI 助手", "设置"]); self.stack = QStackedWidget(); self.single = SingleAnalysisPage(open_mutation=self._open_mutation, open_literature=self._open_literature, research_state_getter=self._research_state_for_single, config_getter=lambda: self._config); self.mutation = MutationPage(open_literature=self._open_literature, on_state_changed=self.single.notify_external_evidence_changed); self.stack.addWidget(self.single); self.stack.addWidget(BatchAnalysisPage(open_single=self._open_single, open_mutation=self._open_mutation)); self.stack.addWidget(self.mutation)
+        self.nav = QListWidget(); self.nav.addItems(["单条分析", "批量分析", "突变", "文献", "AI 助手", "设置"]); self.stack = WorkbenchStack(); self.single = SingleAnalysisPage(open_mutation=self._open_mutation, open_literature=self._open_literature, research_state_getter=self._research_state_for_single, config_getter=lambda: self._config); self.mutation = MutationPage(open_literature=self._open_literature, on_state_changed=self.single.notify_external_evidence_changed); self.stack.addWidget(self.single); self.stack.addWidget(BatchAnalysisPage(open_single=self._open_single, open_mutation=self._open_mutation)); self.stack.addWidget(self.mutation)
         self.literature = LiteraturePage(); self.literature.set_open_ai(self._open_ai_evidence); self.literature.set_summary_changed_callback(self.single.notify_external_evidence_changed); self.stack.addWidget(self.literature)
         self.settings = SettingsPage(); self._config = self.settings.config(); self.ai = AIAssistantPage(lambda: self._config); self.stack.addWidget(self.ai); self.stack.addWidget(self.settings); self.settings.config_applied.connect(self._set_config); self.settings.config_applied.connect(self.single.notify_config_changed); self.nav.currentRowChanged.connect(self.stack.setCurrentIndex); self.nav.setCurrentRow(0)
         self.protein_engineering = ProteinEngineeringPage()
         self.stack.addWidget(self.protein_engineering)
         self.nav.addItem("蛋白质工程")
-        self.research_workflow = ResearchWorkflowPage(self.nav.setCurrentRow)
+        self.research_workflow = ResearchWorkflowPage(self.nav.setCurrentRow, sequence_getter=self.single.case_sequence_snapshot)
+        self.single.case_sequence_invalidated.connect(self.research_workflow.case.invalidate_sequence)
         self.stack.addWidget(self.research_workflow)
         self.nav.addItem("科研工作流")
         self.setWindowTitle("BioResearch Workbench — 抗体与蛋白质工程科研工作台")
@@ -41,6 +64,7 @@ class MainWindow(QMainWindow):
         self.content_scroll = QScrollArea()
         self.content_scroll.setWidgetResizable(True)
         self.content_scroll.setWidget(self.stack)
+        self.stack.currentChanged.connect(lambda _: self.stack.updateGeometry())
         self.nav.currentRowChanged.connect(lambda _: self.content_scroll.verticalScrollBar().setValue(0))
         root = QWidget(); layout = QHBoxLayout(root); layout.addWidget(self.nav); layout.addWidget(self.content_scroll, 1); self.setCentralWidget(root)
         self._shutdown_pool = QThreadPool.globalInstance()

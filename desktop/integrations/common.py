@@ -237,6 +237,8 @@ class Evidence:
     source_alias: str | None = None
     batch_id: str | None = None
     location_status: str = "UPSTREAM_CLAIM_ONLY"
+    category: str | None = None
+    has_raw_quote: bool = False
 
 
 @dataclass(frozen=True)
@@ -252,6 +254,24 @@ class LiteratureDocument:
     doi: str | None = None
     physical_pages: tuple[int, ...] = ()
     evidence_count: int = 0
+
+
+@dataclass(frozen=True)
+class ElisaReportSummary:
+    report_data_sha256: str
+    lower_asymptote: float | None
+    upper_asymptote: float | None
+    midpoint_concentration: float | None
+    slope_magnitude: float | None
+    direction: str | None
+    concentration_unit: str | None
+    response_unit: str | None
+    n_fit_levels: int | None
+    r_squared: float | None
+    rmse: float | None
+    convergence_status: str | None
+    curve_validated: bool
+    validated_quantification_enabled: bool
 
 
 @dataclass(frozen=True)
@@ -273,6 +293,7 @@ class ResultSummary:
     evidence: tuple[Evidence, ...] = ()
     producer_versions: tuple[tuple[str, str], ...] = ()
     documents: tuple[LiteratureDocument, ...] = ()
+    elisa: ElisaReportSummary | None = None
 
     def as_dict(self):
         value = asdict(self)

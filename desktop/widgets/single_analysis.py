@@ -4,11 +4,12 @@ import hashlib
 from datetime import datetime, timezone
 from typing import Any
 
-from PySide6.QtCore import QThreadPool
+from PySide6.QtCore import QThreadPool, Signal
 from PySide6.QtWidgets import QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLayout, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QPlainTextEdit
 
 from core import analyze_sequence, normalize_sequence, validate_sequence
 from scoring import compute_risk_score
+from desktop.integrations.case_context import CaseSource
 from desktop.literature_context import single_risk_context
 from desktop.ml_adapter import DesktopMLService, STATUS_READY, status_code, status_message
 from desktop.ml_metadata import BENCHMARK_ID, BENCHMARK_SCOPE, DEVELOPABILITY_MODEL_ID, ESM_MODEL_NAME, ESM_MODEL_REVISION, HIC_MODEL_ID, LIMITATION, LOCAL_INFERENCE_NOTICE, NO_CATEGORICAL_DECISION_NOTICE, RESEARCH_SUPPORT_NOTICE, evidence_text
@@ -25,6 +26,8 @@ from desktop.zh_cn import display_value, evidence_zh, model_details_zh, notice_z
 
 
 class SingleAnalysisPage(QWidget):
+    case_sequence_invalidated = Signal()
+
     def __init__(self, parent=None, open_mutation=None, open_literature=None, ml_service=None, research_state_getter=None, config_getter=None):
         super().__init__(parent)
         self._open_mutation = open_mutation
@@ -38,6 +41,7 @@ class SingleAnalysisPage(QWidget):
         self.ml_provenance = None
         self._analysis_ready = False
         self._analysis_result = None
+        self._case_source = None
         self._rule_score = None
         self._ml_result = None
         self._research_state_getter = research_state_getter
@@ -75,6 +79,7 @@ class SingleAnalysisPage(QWidget):
         self.sequence.textChanged.connect(self._input_changed)
         self.vl_sequence.textChanged.connect(self._input_changed)
         self.antibody_id.textChanged.connect(self._mark_summary_stale)
+        self.antibody_id.textChanged.connect(self._invalidate_case_sequence)
         form = QFormLayout(); form.addRow("抗体 ID", self.antibody_id); form.addRow("VH 序列", self.sequence); form.addRow("VL 序列", self.vl_sequence)
         buttons = QHBoxLayout(); buttons.addWidget(self.analyze_button); buttons.addWidget(self.clear_button); buttons.addWidget(self.send_mutation_button); buttons.addWidget(self.find_literature_button); buttons.addStretch()
         summary = QFormLayout(); summary.addRow("序列长度", self.length); summary.addRow("规则计算分数", self.score); summary.addRow("规则风险等级", self.level)
@@ -367,6 +372,7 @@ class SingleAnalysisPage(QWidget):
         return normalize_sequence(self.sequence.toPlainText()), normalize_sequence(self.vl_sequence.toPlainText())
 
     def _input_changed(self):
+        self._invalidate_case_sequence()
         self._mark_summary_stale()
         self._analysis_ready = False
         self._analysis_result = None
@@ -408,6 +414,7 @@ class SingleAnalysisPage(QWidget):
             self.ml_status.setText(self._ml_requirement_message())
 
     def analyze(self):
+        self._invalidate_case_sequence()
         self._mark_summary_stale()
         self._analysis_ready = False
         self._analysis_result = None
@@ -423,6 +430,13 @@ class SingleAnalysisPage(QWidget):
         risk = compute_risk_score([(self.antibody_id.text() or "sequence", result)])
         self._analysis_result = result
         self._rule_score = risk
+        self._case_source = CaseSource(
+            self.antibody_id.text().strip() or "sequence",
+            hashlib.sha256(result.sequence.encode("ascii")).hexdigest(),
+            f"{result.sequence_length} aa · {len(result.risks)} 条规则记录 · "
+            f"{risk.overall_score:.2f}（{display_value(risk.risk_level)}）",
+            f"单条分析 · 规则版本 {result.metadata.get('rule_version', '未提供')}",
+        )
         self.score.setText(f"{risk.overall_score:.2f}"); self.level.setText(display_value(risk.risk_level)); self.message.setText(""); self.send_mutation_button.setEnabled(bool(self._open_mutation and result.sequence))
         for item in result.risks:
             row = self.table.rowCount(); self.table.insertRow(row)
@@ -563,7 +577,16 @@ class SingleAnalysisPage(QWidget):
     def analyze_current_input(self):
         self.analyze()
 
+    def case_sequence_snapshot(self) -> CaseSource | None:
+        """Explicit handoff of the last valid rule calculation, without raw sequence text."""
+        return self._case_source
+
+    def _invalidate_case_sequence(self, *_):
+        self._case_source = None
+        self.case_sequence_invalidated.emit()
+
     def clear(self):
+        self._invalidate_case_sequence()
         self._mark_summary_stale()
         self.antibody_id.clear(); self.sequence.clear(); self.vl_sequence.clear(); self.length.setText("-"); self.score.setText("-"); self.level.setText("-"); self.message.clear(); self.table.setRowCount(0); self.send_mutation_button.setEnabled(False); self.find_literature_button.setEnabled(False)
         self._analysis_ready = False
