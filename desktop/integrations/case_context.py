@@ -12,6 +12,7 @@ class CaseSource:
     sha256: str
     summary: str
     origin: str
+    snapshot_json: str = "{}"
 
 
 @dataclass(frozen=True)
@@ -29,6 +30,14 @@ class CaseContext:
     notes: str = ""
     sources: dict[str, CaseSource] = field(default_factory=dict)
     association: Association | None = None
+    findings: str = ""
+    recommendations: str = ""
+    created_at: str = ""
+    updated_at: str = ""
+    historical_sources: dict[str, CaseSource] = field(default_factory=dict)
+    historical_association: Association | None = None
+    unavailable_sources: set[str] = field(default_factory=set)
+    scientific_limitations: tuple[str, ...] | None = None
 
     def set_source(self, name: str, source: CaseSource | None) -> bool:
         if name not in SOURCE_LABELS:
@@ -36,11 +45,24 @@ class CaseContext:
         if source is None and name not in self.sources:
             return False
         self.association = None
+        self.unavailable_sources.discard(name)
         if source is None:
             self.sources.pop(name)
         else:
             self.sources[name] = source
         return True
+
+    def source_status(self, name):
+        if name in self.unavailable_sources:
+            return "来源缺失或不可用"
+        current = self.sources.get(name)
+        previous = self.historical_sources.get(name)
+        if current is None:
+            return "未重新核验" if previous else "未接入"
+        if previous is None:
+            return "当前已接入（没有历史记录）"
+        identity = lambda s: (s.identifier, s.sha256, s.summary, s.snapshot_json)
+        return "当前来源与保存记录匹配" if identity(current) == identity(previous) else "来源发生变化"
 
     def associate(self, kind: str, basis: str):
         if kind not in RELATIONSHIPS[1:]:

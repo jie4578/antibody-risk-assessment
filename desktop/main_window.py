@@ -74,6 +74,11 @@ class MainWindow(QMainWindow):
         self._shutdown_timer.timeout.connect(self._check_shutdown)
 
     def closeEvent(self, event):
+        workflow = getattr(self, "research_workflow", None)
+        if (not self._shutdown_requested and self.isVisible() and workflow is not None
+                and not workflow.case.files.confirm_discard()):
+            event.ignore()
+            return
         if not self._shutdown_requested:
             self._shutdown_requested = True
             Worker.cancel_all()

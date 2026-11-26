@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (QComboBox, QFormLayout, QHBoxLayout, QLabel, QLin
 
 from desktop.integrations.case_context import CaseContext, CaseSource, MATERIALS, RELATIONSHIPS, SOURCE_LABELS
 from desktop.integrations.citation_groups import count_citations
+from desktop.integrations.case_record import external_source
 
 
 def plain_label(text=""):
@@ -42,7 +43,7 @@ class CaseOverview(QWidget):
             editor.setMaxLength(500)
 
         layout = QVBoxLayout(self)
-        layout.addWidget(plain_label("案例只保存在本次会话。关联由用户填写，分子及样品身份均未经系统验证。"))
+        layout.addWidget(plain_label("案例可由用户显式保存到本地 JSON。恢复先展示历史记录，来源需重新接入，关联需重新确认。分子及样品身份为用户声明。"))
         form = QFormLayout()
         form.addRow("案例编号", self.case_id)
         form.addRow("研究主题", self.topic)
@@ -75,6 +76,8 @@ class CaseOverview(QWidget):
         self.unlink_button.clicked.connect(self._unlink)
         self._refresh_sources()
         self.status.setText("未关联。尚无同一分子或同一样品声明。")
+        from desktop.widgets.case_files import CaseFileActions
+        self.files = CaseFileActions(self)
 
     def _context_changed(self, *_):
         case_id = self.case_id.text().strip()
@@ -99,17 +102,9 @@ class CaseOverview(QWidget):
         self._set_source("sequence", None)
 
     def accept_external(self, kind, summary):
-        source = None
-        if summary is not None:
-            detail = f"{summary.experiment} · {summary.state}"
-            if kind == "literature":
-                counts = count_citations(summary.evidence)
-                detail += f" · {counts.records} 条记录，{counts.groups} 个引文组，{counts.unresolved} 条未归组"
-            elif summary.elisa:
-                value = summary.elisa.n_fit_levels
-                detail += f" · 4PL 标准水平数 {value if value is not None else '未提供'}"
-            source = CaseSource(summary.identifier, summary.manifest_sha256, detail, summary.manifest_path)
+        source = external_source(kind, summary) if summary is not None else None
         self._set_source(kind, source)
+        self.files.source_changed(kind, summary)
 
     def _set_source(self, kind, source):
         had_link = self.context.association is not None
@@ -133,6 +128,8 @@ class CaseOverview(QWidget):
         self.relationship.setCurrentIndex(0)
         self.basis.clear()
         self.status.setText(reason + " 当前未关联，尚无同一分子或同一样品声明。")
+        if hasattr(self, "files"):
+            self.files.refresh()
 
     def _unlink(self):
         self._invalidate("已解除关联。")
@@ -149,3 +146,4 @@ class CaseOverview(QWidget):
         boundary = ("当前来源只同属案例，未建立共同分子或样品身份。" if link.kind == RELATIONSHIPS[1]
                     else "此身份关系为用户声明，未经系统验证。")
         self.status.setText(f"已保存：{link.kind}。{boundary} 依据：{link.basis}")
+        self.files.refresh()

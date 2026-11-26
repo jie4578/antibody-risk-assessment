@@ -201,7 +201,7 @@ def test_gui_biolab_summary_and_clearing(qt_application, tmp_path):
 
 
 @pytest.mark.parametrize("size", [(1280, 720), (1920, 1080)])
-def test_reader_shares_first_viewport_with_documents(qt_application, tmp_path, size):
+def test_reader_shares_first_viewport_with_documents(qt_application, tmp_path, size, monkeypatch):
     from PySide6.QtCore import QPoint
     from desktop.main_window import MainWindow
     win = MainWindow()
@@ -221,6 +221,8 @@ def test_reader_shares_first_viewport_with_documents(qt_application, tmp_path, s
     assert reader.document_details.isHidden()
     reader.reader_tabs.setCurrentWidget(reader.document_details)
     assert "PDF SHA256" in reader.document_details.toPlainText()
+    from PySide6.QtWidgets import QMessageBox
+    monkeypatch.setattr(QMessageBox, "question", lambda *args: QMessageBox.StandardButton.Discard)
     win.close()
 
 

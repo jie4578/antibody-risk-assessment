@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from datetime import datetime, timezone
 from typing import Any
 
@@ -436,6 +437,11 @@ class SingleAnalysisPage(QWidget):
             f"{result.sequence_length} aa · {len(result.risks)} 条规则记录 · "
             f"{risk.overall_score:.2f}（{display_value(risk.risk_level)}）",
             f"单条分析 · 规则版本 {result.metadata.get('rule_version', '未提供')}",
+            json.dumps(dict(rule_version=result.metadata.get("rule_version"), score=risk.overall_score,
+                            risk_level=risk.risk_level, sequence_length=result.sequence_length,
+                            risks=[dict(position=item.position, motif=item.motif, category=item.category,
+                                        region=item.region) for item in result.risks]),
+                       ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False),
         )
         self.score.setText(f"{risk.overall_score:.2f}"); self.level.setText(display_value(risk.risk_level)); self.message.setText(""); self.send_mutation_button.setEnabled(bool(self._open_mutation and result.sequence))
         for item in result.risks:

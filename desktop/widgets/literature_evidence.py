@@ -134,6 +134,7 @@ class LiteratureEvidencePanel(ResultImportPanel):
                 error = "INVALID_RESULT: 文献结果无法安全展示"
         if error:
             self.status.setText("新批次拒绝接入：" + error + "。此前成功接入的数据保持不变。")
+            self.import_failed.emit(error)
             return
         self.summary = summary
         self.path.setText(attempted)
