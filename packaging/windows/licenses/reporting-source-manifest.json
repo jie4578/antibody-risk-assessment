@@ -1,0 +1,67 @@
+{
+  "retrieved_date": "2026-11-27",
+  "purpose": "MERGE-04A DOCX dependency notice preparation",
+  "entries": [
+    {
+      "name": "python-docx",
+      "version": "1.2.0",
+      "wheel": "python_docx-1.2.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/d0/00/1e03a4989fa5795da308cd774f05b704ace555a70f9bf9d3be057b680bcf/python_docx-1.2.0-py3-none-any.whl",
+      "sha256": "3fd478f3250fbbbfd3b94fe1e985955737c145627498896a8a6bf81f4baf66c7",
+      "requires_python": ">=3.9",
+      "upstream_notices": [
+        {
+          "wheel_path": "python_docx-1.2.0.dist-info/licenses/LICENSE",
+          "file": "upstream-notices\\python-docx\\LICENSE",
+          "sha256": "7652f271e46d0d533e9dc463f3b5fcbdcacf4d6a9c8d6b554d15efd0f37f6132"
+        }
+      ],
+      "repository_notices": [
+        {
+          "path": "packaging/windows/licenses/python-docx-1.2.0-MIT.txt",
+          "sha256_lf": "7652f271e46d0d533e9dc463f3b5fcbdcacf4d6a9c8d6b554d15efd0f37f6132"
+        }
+      ]
+    },
+    {
+      "name": "lxml",
+      "version": "6.1.3",
+      "wheel": "lxml-6.1.3-cp314-cp314-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/0f/bc/5811cc73cac05e324e05ba9b0924e1a163a317a167ede8a9c748b11db30a/lxml-6.1.3-cp314-cp314-win_amd64.whl",
+      "sha256": "66299564c046bc7e0cc5de5106601eae907e9fa5904cd68a323380a8502f7861",
+      "requires_python": ">=3.8",
+      "upstream_notices": [
+        {
+          "wheel_path": "lxml-6.1.3.dist-info/licenses/LICENSE.txt",
+          "file": "upstream-notices\\lxml\\LICENSE.txt",
+          "sha256": "e7c3ce8d76331b0101cc46790ab43958ea90a364bcf962ed8763d5a818340e69"
+        },
+        {
+          "wheel_path": "lxml-6.1.3.dist-info/licenses/LICENSES.txt",
+          "file": "upstream-notices\\lxml\\LICENSES.txt",
+          "sha256": "df682c668de65321677b5e4861dca4128a8bad8067f230956e9da3f985b3d398"
+        }
+      ],
+      "repository_notices": [
+        {
+          "path": "packaging/windows/licenses/lxml-6.1.3-LICENSE.txt",
+          "sha256_lf": "8fc2b568133516e46845d2147917adeee1648e70ae9ab5ed6c5417afef4ce855"
+        },
+        {
+          "path": "packaging/windows/licenses/lxml-6.1.3-THIRD-PARTY-LICENSES.txt",
+          "sha256_lf": "388fa99f3bde4447cd5a4cbb114037be026854db6cfe89e112691c1d8abdcf3c"
+        }
+      ]
+    }
+  ],
+  "note": "Official wheel SHA256 verified; source license payloads retained in local evidence. Repository copies normalize CRLF and trailing blank lines only; repository hashes describe LF-normalized text. No legal certification or final bundle audit.",
+  "final_bundle_verified": false,
+  "additional_license_text": {
+    "name": "LGPL-2.1",
+    "url": "https://www.gnu.org/licenses/old-licenses/lgpl-2.1.txt",
+    "upstream_sha256": "20e50fe7aae3e56378ebf0417d9de904f55a0e61e4df315333e632a4d3555d95",
+    "repository_file": "packaging/windows/licenses/LGPL-2.1.txt",
+    "repository_sha256_lf": "20e50fe7aae3e56378ebf0417d9de904f55a0e61e4df315333e632a4d3555d95",
+    "note": "License text supplied; iconv source/linking and other obligations remain unresolved."
+  }
+}

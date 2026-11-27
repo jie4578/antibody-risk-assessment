@@ -139,12 +139,89 @@ def audit_bundle(directory):
     return {"forbidden_files": [], "files": sum(p.is_file() for p in directory.rglob("*")), "bytes": sum(p.stat().st_size for p in directory.rglob("*") if p.is_file())}
 
 
+def preflight():
+    """Inspect the selected build interpreter. Never install or build anything."""
+    import sysconfig
+    if __package__:
+        from .check_docx_support import check_docx_support
+    else:
+        from check_docx_support import check_docx_support
+
+    expected = {}
+    for line in (ROOT / "packaging/windows/requirements-build.txt").read_text(encoding="utf8").splitlines():
+        if line.strip() and not line.startswith("#"):
+            name, version = line.split("==")
+            expected[name] = version
+    issues = []
+    actual = {}
+    for name, version in expected.items():
+        try:
+            actual[name] = metadata.version(name).strip()
+        except metadata.PackageNotFoundError:
+            actual[name] = None
+        if actual[name] != version:
+            issues.append("DEPENDENCY_VERSION_MISMATCH:" + name)
+    if (sys.platform != "win32" or platform.machine().lower() not in {"amd64", "x86_64"}
+            or platform.python_version() != "3.14.8"
+            or sysconfig.get_config_var("Py_GIL_DISABLED")
+            or (hasattr(sys, "_is_gil_enabled") and not sys._is_gil_enabled())):
+        issues.append("REQUIRES_CPYTHON_3_14_8_WINDOWS_X64_STANDARD_GIL")
+    imports = {}
+    for name in ("PySide6.QtWidgets", "numpy", "scipy.optimize", "scipy.stats", "sqlite3", "lxml.etree"):
+        try:
+            __import__(name)
+            imports[name] = "PASS"
+        except (ImportError, OSError):
+            imports[name] = "FAIL"
+            issues.append("NATIVE_IMPORT_FAILED:" + name)
+    try:
+        docx = check_docx_support()
+    except (ImportError, OSError, RuntimeError, ValueError):
+        docx = {"status": "FAIL"}
+        issues.append("DOCX_SUPPORT_UNAVAILABLE")
+    required_sources = (
+        "desktop/version.py", "desktop/integrations/case_context.py",
+        "desktop/integrations/case_record.py", "desktop/integrations/case_report.py",
+        "desktop/widgets/case_files.py", "desktop/widgets/research_workflow.py",
+        "desktop/widgets/literature_evidence.py", "desktop/widgets/biolab_summary.py",
+        "packaging/windows/launcher.py", "packaging/windows/workbench.spec",
+    )
+    resources = {}
+    for relative in required_sources:
+        source = ROOT / relative
+        if not source.is_file():
+            issues.append("SOURCE_RESOURCE_MISSING:" + relative)
+        else:
+            resources[relative] = digest(source)
+    for relative in PROTEIN_RESOURCES:
+        source = ROOT / "protein_engineering/resources/phase0" / relative
+        if not source.is_file():
+            issues.append("PROTEIN_RESOURCE_MISSING:" + relative)
+        else:
+            resources["protein_engineering/resources/phase0/" + relative] = digest(source)
+    return dict(status="PASS" if not issues else "NOT_READY", issues=issues,
+                python=platform.python_version(), architecture=platform.machine(),
+                expected_versions=expected, actual_versions=actual, imports=imports,
+                docx=docx, source_resources=resources,
+                built_executable=False, public_distribution_allowed=False)
+
+
 def main():
     import tomllib  # Build interpreter is pinned to 3.14.8; helpers also import on 3.10.
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--preflight-only", action="store_true",
+                        help="Inspect dependencies and resources; do not snapshot or build")
     parser.add_argument("--iscc", type=Path)
     args = parser.parse_args()
+    readiness = preflight()
+    if args.preflight_only:
+        print(json.dumps(readiness, ensure_ascii=False, indent=2))
+        return 0 if readiness["status"] == "PASS" else 1
+    if readiness["status"] != "PASS":
+        parser.error("Build preflight failed: " + ", ".join(readiness["issues"]))
+    if args.output is None:
+        parser.error("--output is required for a build")
     if sys.platform != "win32" or platform.machine().lower() not in {"amd64", "x86_64"}:
         parser.error("Build on native Windows x64")
     output = args.output.resolve()
@@ -160,8 +237,8 @@ def main():
     (resources / "VERSION.txt").write_text(version, encoding="ascii")
     (resources / "version_info.txt").write_text(
         "VSVersionInfo(ffi=FixedFileInfo(filevers=(4,1,0,2),prodvers=(4,1,0,2),mask=0x3f,flags=0x2,OS=0x40004,fileType=0x1,subtype=0x0,date=(0,0)),"
-        "kids=[StringFileInfo([StringTable('040904B0',[StringStruct('FileDescription','Antibody Research Workbench - Release Candidate'),"
-        "StringStruct('FileVersion','4.1.0rc2'),StringStruct('ProductVersion','4.1.0rc2'),StringStruct('ProductName','Antibody Research Workbench')])]),"
+        "kids=[StringFileInfo([StringTable('040904B0',[StringStruct('FileDescription','BioResearch Workbench - Release Candidate'),"
+        "StringStruct('FileVersion','4.1.0rc2'),StringStruct('ProductVersion','4.1.0rc2'),StringStruct('ProductName','BioResearch Workbench')])]),"
         "VarFileInfo([VarStruct('Translation',[1033,1200])])])", encoding="utf-8")
     inventory = notices(resources / "THIRD_PARTY_NOTICES")
     import os
@@ -198,4 +275,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

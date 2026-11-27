@@ -48,8 +48,8 @@ jobs:
       matrix:
         python-version: ['3.10', '3.11', '3.12']
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.1.0
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install Qt Linux runtime libraries
@@ -155,9 +155,18 @@ jobs:
           elif scope == 'optional-compatibility':
               # Untrained tiny Transformer construction/forward only; no optimizer/backward.
               targets = ['tests/test_ml.py::test_transformer_build_when_torch_present']
+          elif scope == 'docx':
+              from tools.check_docx_support import check_docx_support
+              print('DOCX dependency/resource check:', check_docx_support())
+              targets = [
+                  'tests/test_research_case_fix01.py::test_declared_limits_roundtrip_and_reports',
+                  'tests/test_research_case_persistence.py::test_markdown_and_docx_text_no_external_relationships',
+                  'tests/test_research_case_persistence.py::test_incidental_absolute_paths_redacted_in_both_formats',
+              ]
           else:
               raise SystemExit('Unknown reviewed SAFE_CI_SCOPE')
 
+          docx_passed = set()
           class CollectionBoundary:
               @pytest.hookimpl(trylast=True)
               def pytest_collection_modifyitems(self, items):
@@ -166,6 +175,8 @@ jobs:
                       blocked('live test entered SAFE_CI selection')
                   if ids.intersection(training_nodes):
                       blocked('training node entered SAFE_CI selection')
+                  if scope == 'docx' and len(ids) != 6:
+                      blocked('DOCX gate must collect the six original report cases')
                   if scope == 'application':
                       required = {
                           'tests/test_protein_engineering.py', 'tests/test_protein_rate_storage.py',
@@ -174,11 +185,22 @@ jobs:
                       if not required.issubset({n.split('::')[0] for n in ids}):
                           blocked('Protein Engineering / wheel coverage missing')
 
+              def pytest_runtest_logreport(self, report):
+                  if scope == 'docx':
+                      if report.skipped:
+                          blocked('required DOCX regression was skipped')
+                      if report.when == 'call' and report.passed:
+                          docx_passed.add(report.nodeid)
+
           args = ['-o', 'addopts=', '-m', 'not live', *targets, '-q', '-ra']
           if os.environ.get('SAFE_CI_COLLECT_ONLY') == '1':
               args.append('--collect-only')
           print('SAFE_CI:', scope, shlex.join(args))
           code = pytest.main(args, plugins=[CollectionBoundary()])
+          if scope == 'docx' and os.environ.get('SAFE_CI_COLLECT_ONLY') != '1':
+              print('DOCX gate passed:', len(docx_passed), 'of 6; skipped cases are forbidden')
+              if len(docx_passed) != 6:
+                  blocked('required DOCX regression did not complete')
           print('SAFE_CI boundary violations:', len(violations))
           if violations:
               print('SAFE_CI violations:', sorted(set(violations)))
@@ -189,8 +211,8 @@ jobs:
     name: "pytest (optional deps: torch + langchain)"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.1.0
         with:
           python-version: '3.12'
       - name: Install Qt Linux runtime libraries
@@ -221,10 +243,10 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7.1.0
         with:
           python-version: '3.12'
       - name: Install Qt Linux runtime libraries
@@ -234,6 +256,11 @@ jobs:
           sudo apt-get install -y libegl1 libgl1 libopengl0
       - name: Install Desktop and test dependencies
         run: python -m pip install ".[desktop,dev]" biopython
+      - name: Required DOCX resources and six original report regressions
+        shell: python
+        env:
+          SAFE_CI_SCOPE: docx
+        run: *safe_ci_runner
       - name: Safe application and installed-wheel tests
         shell: python
         env:
@@ -250,8 +277,8 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_training_tests == true }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.1.0
         with:
           python-version: '3.12'
       - name: Install Qt Linux runtime libraries
@@ -280,8 +307,8 @@ jobs:
       DEEPSEEK_API_KEY: ${{ secrets.CI_LIVE_DEEPSEEK_API_KEY }}
       ANTIBODY_RUN_LIVE_ACCEPTANCE: '1'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.1.0
         with:
           python-version: '3.12'
       - name: Install Qt Linux runtime libraries

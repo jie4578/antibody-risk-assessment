@@ -1,5 +1,6 @@
 """Atomic read-only literature intake; no PDF or external engine execution."""
 import json
+from html import escape
 from pathlib import Path
 import uuid
 
@@ -88,7 +89,7 @@ class LiteratureEvidencePanel(ResultImportPanel):
         layout.addWidget(splitter, 1)
         self.reader_tabs = QTabWidget()
         self.reader_tabs.addTab(reader, "文献与证据")
-        self.reader_tabs.addTab(self.document_details, "所选文献来源")
+        self.reader_tabs.addTab(self.document_details, "所选文献完整标题与来源")
         self.reader_tabs.addTab(self.details, "来源、报告位置与安全摘要")
         self.layout().addWidget(self.reader_tabs, 1)
         self.document_table.currentCellChanged.connect(self._document_selected)
@@ -160,6 +161,9 @@ class LiteratureEvidencePanel(ResultImportPanel):
             title = document.title_candidate or document.display_name + "（缺少标题候选）"
             for col, value in enumerate((title, document.source_alias, document.state, str(document.evidence_count))):
                 item = QTableWidgetItem(value)
+                # Qt tooltips use AutoText: escape source text before supplying
+                # controlled markup so titles cannot load links/images or HTML.
+                item.setToolTip("<qt>" + escape(value).replace("\n", "<br>") + "</qt>")
                 item.setData(Qt.UserRole, document.document_id)
                 self.document_table.setItem(row, col, item)
         if self.document_table.rowCount():
@@ -179,6 +183,7 @@ class LiteratureEvidencePanel(ResultImportPanel):
         document_id = item.data(Qt.UserRole)
         document = next(d for d in self.summary.documents if d.document_id == document_id)
         self.document_details.setPlainText(
+            f"完整标题（上游声明）：{document.title_candidate or document.display_name}\n"
             f"标题候选来源（上游声明）：{document.title_source or '未提供'}\n"
             f"文件标签：{document.display_name}；来源标签：{document.source_alias}\n"
             f"DOI（上游声明）：{document.doi or '未提供'}\n"

@@ -2,6 +2,7 @@
 from dataclasses import asdict
 from datetime import datetime, timezone
 from hashlib import sha256
+import errno
 import json
 import math
 import os
@@ -317,7 +318,16 @@ def atomic_write(path, content, *, overwrite=False):
         if not output.commit():
             raise OSError("OUTPUT_COMMIT_FAILED")
         if not overwrite:
-            os.link(staging, target)
+            try:
+                os.link(staging, target)
+            except OSError as exc:
+                unsupported = {errno.EXDEV, errno.ENOSYS, errno.ENOTSUP, errno.EOPNOTSUPP}
+                if exc.errno in unsupported or getattr(exc, "winerror", None) in {1, 50}:
+                    raise OSError(errno.ENOTSUP,
+                                  "OUTPUT_HARDLINK_UNSUPPORTED: 所选位置不支持安全的新文件发布。"
+                                  "请改选支持硬链接的本地目录（例如 NTFS）；"
+                                  "已有文件未被覆盖，当前研究记录仍保留。") from exc
+                raise
     finally:
         Path(staging).unlink(missing_ok=True)
 

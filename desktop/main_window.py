@@ -55,7 +55,8 @@ class MainWindow(QMainWindow):
         self.single.case_sequence_invalidated.connect(self.research_workflow.case.invalidate_sequence)
         self.stack.addWidget(self.research_workflow)
         self.nav.addItem("科研工作流")
-        self.setWindowTitle("BioResearch Workbench — 抗体与蛋白质工程科研工作台")
+        from desktop.version import PRODUCT_NAME, PRODUCT_NAME_ZH
+        self.setWindowTitle(PRODUCT_NAME + " — " + PRODUCT_NAME_ZH + "（抗体与蛋白质工程）")
         self.nav.setFixedWidth(136)
         from desktop.version import project_version
         self.setWindowTitle(self.windowTitle() + " — " + project_version() + " 候选版")
