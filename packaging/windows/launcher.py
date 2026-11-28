@@ -17,8 +17,22 @@ def configure_paths():
 def main():
     local = configure_paths()
     if "--installation-smoke" in sys.argv:
+        import argparse
+        parser = argparse.ArgumentParser(description="Fixed offline synthetic installation checks")
+        parser.add_argument("--installation-smoke", action="store_true")
+        parser.add_argument("--installation-smoke-phase", choices=("basic", "create", "restore"), default="basic")
+        parser.add_argument("--installation-smoke-root", type=Path)
+        args = parser.parse_args()
+        if (args.installation_smoke_phase == "basic") != (args.installation_smoke_root is None):
+            parser.error("create/restore require an explicit synthetic smoke directory; basic does not accept one")
         from desktop.installation_smoke import run
-        report = run()
+        try:
+            report = run(phase=args.installation_smoke_phase, directory=args.installation_smoke_root)
+        except Exception as exc:
+            report = {"status": "FAIL", "phase": args.installation_smoke_phase,
+                      "error_type": type(exc).__name__, "frozen": bool(getattr(sys, "frozen", False))}
+            (local / "installation-smoke.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+            raise
         (local / "installation-smoke.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
         return 0
     from desktop.main import main as desktop_main
