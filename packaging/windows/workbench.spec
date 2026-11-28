@@ -8,6 +8,8 @@ hidden = []
 for package in ('desktop', 'agent', 'literature', 'rag', 'ml_inference', 'protein_engineering'):
     hidden.extend(collect_submodules(package))
 hidden.extend(['keyring.backends.Windows', 'keyring.backends.chainer', 'openpyxl', 'openai'])
+hidden.extend(collect_submodules('docx'))
+hidden.extend(['lxml.etree', 'lxml._elementpath'])
 hidden.extend(collect_submodules('win32ctypes'))
 datas = [(str(root / 'LICENSE'), '.'), (str(root / 'example_antibodies.csv'), 'examples'),
          (str(resources / 'THIRD_PARTY_NOTICES'), 'THIRD_PARTY_NOTICES'),
@@ -18,12 +20,14 @@ datas += [(str(root / 'docs/WINDOWS_THIRD_PARTY_AUDIT.md'), 'docs')]
 datas += [(str(root / 'docs/WINDOWS_DELIVERY_ACCEPTANCE.md'), 'docs')]
 datas += [(str(image), 'docs/images/windows') for image in (root / 'docs/images/windows').glob('*.png')]
 datas += collect_data_files('protein_engineering', includes=['resources/phase0/*.md', 'resources/phase0/*.json', 'resources/phase0/templates/*.csv'])
-for package in ('keyring', 'openai', 'numpy', 'pandas', 'PySide6'):
+datas += collect_data_files('docx', includes=['templates/*'])
+for package in ('keyring', 'openai', 'numpy', 'scipy', 'pandas', 'PySide6', 'python-docx', 'lxml'):
     datas += copy_metadata(package)
 a = Analysis([str(root / 'packaging/windows/launcher.py')], pathex=[str(root)], datas=datas,
              hiddenimports=hidden,
-             excludes=['torch', 'transformers', 'huggingface_hub', 'sklearn', 'scipy', 'gradio',
+             excludes=['torch', 'transformers', 'huggingface_hub', 'sklearn', 'gradio',
                        'ml', 'validation', 'pytest', 'IPython', 'matplotlib', 'PyQt5', 'PyQt6',
+                       'lxml.isoschematron',
                        'PySide6.QtWebEngineCore', 'PySide6.QtWebEngineWidgets', 'PySide6.QtQml',
                        'PySide6.QtQuick', 'PySide6.QtPdf', 'PySide6.QtMultimedia'],
              noarchive=False)

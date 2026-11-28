@@ -9,13 +9,13 @@
 #endif
 [Setup]
 AppId={{22D5F89B-1F42-4D31-9A95-11752830ECF0}
-AppName=Antibody Research Workbench
+AppName=BioResearch Workbench
 AppVersion={#AppVersion}
-AppVerName=Antibody Research Workbench {#AppVersion} (Release Candidate)
+AppVerName=BioResearch Workbench {#AppVersion} (Release Candidate)
 AppPublisher=Antibody Risk Assessment contributors
 AppPublisherURL=https://github.com/jie4578/antibody-risk-assessment
 DefaultDirName={localappdata}\Programs\AntibodyResearchWorkbench
-DefaultGroupName=Antibody Research Workbench
+DefaultGroupName=BioResearch Workbench
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
@@ -39,11 +39,11 @@ Name: "desktopicon"; Description: "创建桌面快捷方式"; GroupDescription: 
 Source: "{#BundleDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\抗体科研工作台（候选版）"; Filename: "{app}\AntibodyResearchWorkbench.exe"; WorkingDir: "{app}"
-Name: "{group}\卸载抗体科研工作台"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\抗体科研工作台（候选版）"; Filename: "{app}\AntibodyResearchWorkbench.exe"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{group}\生物科研决策支持工作台（候选版）"; Filename: "{app}\AntibodyResearchWorkbench.exe"; WorkingDir: "{app}"
+Name: "{group}\卸载生物科研决策支持工作台"; Filename: "{uninstallexe}"
+Name: "{autodesktop}\生物科研决策支持工作台（候选版）"; Filename: "{app}\AntibodyResearchWorkbench.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\AntibodyResearchWorkbench.exe"; Description: "启动抗体科研工作台"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\AntibodyResearchWorkbench.exe"; Description: "启动生物科研决策支持工作台"; Flags: nowait postinstall skipifsilent
 
 ; User configuration/cache/model directories are intentionally never deleted.

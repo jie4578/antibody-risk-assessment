@@ -4,6 +4,9 @@ from pathlib import Path
 import re
 import sys
 
+PRODUCT_NAME = "BioResearch Workbench"
+PRODUCT_NAME_ZH = "生物科研决策支持工作台"
+
 
 def project_version():
     if getattr(sys, "frozen", False):
